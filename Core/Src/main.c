@@ -1308,12 +1308,12 @@ void StartHeartbeatTask(void *argument)
     /* Infinite loop */
     for (;;) {
         HAL_GPIO_TogglePin(LED_HB_GPIO_Port, LED_HB_Pin);
-        if (controller1.current_button_state == 0xfff0) {
+        if (!controller1.is_active) {
             HAL_GPIO_WritePin(LED_SNES0_GPIO_Port, LED_SNES0_Pin, GPIO_PIN_RESET);
         } else {
             HAL_GPIO_WritePin(LED_SNES0_GPIO_Port, LED_SNES0_Pin, GPIO_PIN_SET);
         }
-        if (controller2.current_button_state == 0xfff0) {
+        if (!controller2.is_active) {
             HAL_GPIO_WritePin(LED_SNES1_GPIO_Port, LED_SNES1_Pin, GPIO_PIN_RESET);
         } else {
             HAL_GPIO_WritePin(LED_SNES1_GPIO_Port, LED_SNES1_Pin, GPIO_PIN_SET);

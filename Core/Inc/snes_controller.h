@@ -32,6 +32,7 @@ typedef struct snes_controller_t {
 	GPIO_TypeDef *clock_port;
 	uint16_t clock_pin;
 	GPIO_TypeDef *data_port;
+	uint8_t is_active;
 	uint16_t data_pin;
 	uint16_t current_button_state;
 	uint16_t previous_button_state;

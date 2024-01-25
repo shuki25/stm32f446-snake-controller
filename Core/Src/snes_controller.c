@@ -41,6 +41,7 @@ void snes_controller_init(snes_controller_t *snes_controller, TIM_HandleTypeDef 
 	snes_controller->clock_pin = clock_pin;
 	snes_controller->data_port = data_port;
 	snes_controller->data_pin = data_pin;
+	snes_controller->is_active = 0;
 	snes_controller->current_button_state = 0xfff0;
 	snes_controller->previous_button_state = 0xfff0;
 }
@@ -95,4 +96,14 @@ void snes_controller_read2(snes_controller_t *snes_controller1, snes_controller_
     }
     snes_controller1->current_button_state = (~snes_controller1->current_button_state) & 0xFFF0;
     snes_controller2->current_button_state = (~snes_controller2->current_button_state) & 0xFFF0;
+	if (snes_controller1->current_button_state == 0xfff0) {
+		snes_controller1->is_active = 0;
+	} else {
+		snes_controller1->is_active = 1;
+	}
+	if (snes_controller2->current_button_state == 0xfff0) {
+		snes_controller2->is_active = 0;
+	} else {
+		snes_controller2->is_active = 1;
+	}
 }
