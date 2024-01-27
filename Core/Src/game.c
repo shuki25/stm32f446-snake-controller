@@ -99,6 +99,8 @@ void game_loop() {
     eeprom_id_t eeprom_signature;
     game_stats_t game_stats[NUM_DIFFICULTIES];
     size_t game_stats_size = sizeof(game_stats_t);
+    uint8_t game_stats_updated = 0;
+
     RTC_TimeTypeDef sTime;
     RTC_DateTypeDef sDate;
     bcd_time_t current_datetime;
@@ -268,6 +270,42 @@ void game_loop() {
                 ssd1306_WriteString("GAME OVER", Font_11x18, White);
 //                ssd1306_SetCursor(25, 54);
 //                ssd1306_WriteString("Press Start", Font_7x10, White);
+
+                if (game_options.num_players == ONE_PLAYER) {
+                    if (best_score > game_stats[game_options.difficulty].high_score) {
+                        game_stats[game_options.difficulty].high_score = best_score;
+                        game_stats[game_options.difficulty].poison = game_options.poison;
+                        game_stats[game_options.difficulty].num_apples_eaten = apples_eaten[0];
+                        game_stats[game_options.difficulty].length_played = game_elapsed_time;
+                        game_stats[game_options.difficulty].level = game_level;
+                        game_stats[game_options.difficulty].times_played++;
+                        game_stats[game_options.difficulty].sDate.WeekDay = sDate.WeekDay;
+                        game_stats[game_options.difficulty].sDate.Month = sDate.Month;
+                        game_stats[game_options.difficulty].sDate.Date = sDate.Date;
+                        game_stats[game_options.difficulty].sDate.Year = sDate.Year;
+                        game_stats_updated = 1;
+                    }
+                    if (game_stats_updated) {
+                        if (eeprom.write_protected == 1) {
+                            eeprom_status = eeprom_write_protect(&eeprom, 0);
+                            if (eeprom_status != EEPROM_OK) {
+                                Error_Handler();
+                            }
+                        }
+                        eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + game_options.difficulty, 0,
+                                (uint8_t*) &game_stats[game_options.difficulty], (uint16_t) game_stats_size);
+                        if (eeprom_status != EEPROM_OK) {
+                            Error_Handler();
+                        }
+                        if (eeprom.write_protected == 0) {
+                            eeprom_status = eeprom_write_protect(&eeprom, 1);
+                            if (eeprom_status != EEPROM_OK) {
+                                Error_Handler();
+                            }
+                        }
+                        game_stats_updated = 0;
+                    }
+                }
                 delay_counter++;
             }
             if (game_over && delay_counter) {
@@ -296,6 +334,7 @@ void game_loop() {
                 apples_eaten[1] = 0;
                 death = 0;
 
+                best_score = game_stats[game_options.difficulty].high_score;
                 field->num_poisons_spawned = 0;
                 field->poison_spawn_cooldown = 5;
 
