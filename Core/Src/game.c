@@ -98,7 +98,9 @@ void game_loop() {
     eeprom_t eeprom;
     eeprom_id_t eeprom_signature;
     game_stats_t game_stats[NUM_DIFFICULTIES];
+    global_stats_t global_stats[NUM_DIFFICULTIES];
     size_t game_stats_size = sizeof(game_stats_t);
+    size_t global_stats_size = sizeof(global_stats_t);
     uint8_t game_stats_updated = 0;
 
     RTC_TimeTypeDef sTime;
@@ -152,6 +154,7 @@ void game_loop() {
     // Initialize EEPROM for saving high score and game options
 
     memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
+    memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
 
     for (int i = 0; i < NUM_DIFFICULTIES; i++) {
         game_stats[i].difficulty = i;
@@ -165,7 +168,14 @@ void game_loop() {
         game_stats[i].sDate.Date = 1;
         game_stats[i].sDate.Year = 24;
         memcpy(game_stats[i].player_name, "AAA\0", 4);
-        game_stats[i].times_played = 0;
+
+        global_stats[i].difficulty = i;
+        global_stats[i].death_by_poison = 0;
+        global_stats[i].death_by_wall = 0;
+        global_stats[i].death_by_self = 0;
+        global_stats[i].total_games_played = 0;
+        global_stats[i].total_apples_eaten = 0;
+        global_stats[i].total_time_played = 0;
     }
 
     HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
@@ -180,9 +190,17 @@ void game_loop() {
             eeprom_status = eeprom_verify_signature(&eeprom_signature, NUM_DIFFICULTIES);
             if (eeprom_status == EEPROM_OK) {
                 memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
+                memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
                 for (int i = 0; i < NUM_DIFFICULTIES; i++) {
                     eeprom_status = eeprom_read(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
                             (uint16_t) game_stats_size);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+                for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                    eeprom_status = eeprom_read(&eeprom, EEPROM_START_PAGE + NUM_DIFFICULTIES + i, 0,
+                            (uint8_t*) &global_stats[i], (uint16_t) global_stats_size);
                     if (eeprom_status != EEPROM_OK) {
                         Error_Handler();
                     }
@@ -204,6 +222,13 @@ void game_loop() {
                 for (int i = 0; i < NUM_DIFFICULTIES; i++) {
                     eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
                             (uint16_t) game_stats_size);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+                for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                    eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + NUM_DIFFICULTIES + i, 0,
+                            (uint8_t*) &global_stats[i], (uint16_t) global_stats_size);
                     if (eeprom_status != EEPROM_OK) {
                         Error_Handler();
                     }
@@ -278,32 +303,47 @@ void game_loop() {
                         game_stats[game_options.difficulty].num_apples_eaten = apples_eaten[0];
                         game_stats[game_options.difficulty].length_played = game_elapsed_time;
                         game_stats[game_options.difficulty].level = game_level;
-                        game_stats[game_options.difficulty].times_played++;
                         game_stats[game_options.difficulty].sDate.WeekDay = sDate.WeekDay;
                         game_stats[game_options.difficulty].sDate.Month = sDate.Month;
                         game_stats[game_options.difficulty].sDate.Date = sDate.Date;
                         game_stats[game_options.difficulty].sDate.Year = sDate.Year;
                         game_stats_updated = 1;
                     }
-                    if (game_stats_updated) {
-                        if (eeprom.write_protected == 1) {
-                            eeprom_status = eeprom_write_protect(&eeprom, 0);
-                            if (eeprom_status != EEPROM_OK) {
-                                Error_Handler();
-                            }
+
+                    global_stats[game_options.difficulty].total_games_played++;
+                    global_stats[game_options.difficulty].total_apples_eaten += apples_eaten[0];
+                    global_stats[game_options.difficulty].total_time_played += game_elapsed_time;
+                    if (death_reason == SNAKE_DEATH_BY_POISON) {
+                        global_stats[game_options.difficulty].death_by_poison++;
+                    } else if (death_reason == SNAKE_DEATH_BY_WALL) {
+                        global_stats[game_options.difficulty].death_by_wall++;
+                    } else if (death_reason == SNAKE_DEATH_BY_SELF) {
+                        global_stats[game_options.difficulty].death_by_self++;
+                    }
+
+                    if (eeprom.write_protected == 1) {
+                        eeprom_status = eeprom_write_protect(&eeprom, 0);
+                        if (eeprom_status != EEPROM_OK) {
+                            Error_Handler();
                         }
+                    }
+                    eeprom_status = eeprom_write(&eeprom,
+                            EEPROM_START_PAGE + NUM_DIFFICULTIES + game_options.difficulty, 0,
+                            (uint8_t*) &global_stats[game_options.difficulty], (uint16_t) global_stats_size);
+                    if (game_stats_updated) {
                         eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + game_options.difficulty, 0,
                                 (uint8_t*) &game_stats[game_options.difficulty], (uint16_t) game_stats_size);
                         if (eeprom_status != EEPROM_OK) {
                             Error_Handler();
                         }
-                        if (eeprom.write_protected == 0) {
-                            eeprom_status = eeprom_write_protect(&eeprom, 1);
-                            if (eeprom_status != EEPROM_OK) {
-                                Error_Handler();
-                            }
-                        }
                         game_stats_updated = 0;
+                    }
+
+                    if (eeprom.write_protected == 0) {
+                        eeprom_status = eeprom_write_protect(&eeprom, 1);
+                        if (eeprom_status != EEPROM_OK) {
+                            Error_Handler();
+                        }
                     }
                 }
                 delay_counter++;

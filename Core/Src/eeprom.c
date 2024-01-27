@@ -1,9 +1,33 @@
 /*
 * eeprom.c
-* Created on: 2023-06-13
+* Created on: 202-01-26
 * Author: Joshua Butler, MD, MHI
 *
 * This file contains the functions for controlling the EEPROM.
+*
+* The EEPROM is a STMicroelectronics M24C64-RMN6TP, 8K x 8-bit EEPROM.
+* It is organized into 256 pages of 32 bytes each.
+*
+* Write protect is controlled by a GPIO pin on the MCU. When the pin is high
+* the EEPROM is write protected. When the pin is low or floating, the EEPROM
+* is write enabled.
+*
+* The first page of the EEPROM is reserved for a signature block. This block
+* contains the following information:
+*
+* 8 bytes: Signature (EEPROM_SIGNATURE)
+* 1 byte: Version (EEPROM_VERSION)
+* 1 byte: Revision (EEPROM_REVISION)
+* 1 byte: Number of pages (EEPROM_NUM_PAGES)
+*
+* The signature block is used to verify that the EEPROM contains the correct
+* data for the game. If the signature block is not present or does not match
+* the expected values, the content of EEPROM will be erased and replaced with
+* the correct signature block.
+*
+* The remaining pages of the EEPROM are used to store the high scores for the
+* game and global game statistics.
+*
 */
 
 #include "cmsis_os.h"

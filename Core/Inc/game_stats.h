@@ -27,8 +27,13 @@
  * times_played: number of games played at this difficulty
  *
  * Total size of struct must be less than 32 bytes as the EEPROM page size is 32 bytes.
- * The current struct size is 24 bytes. If the struct size is changed, the EEPROM
- * must be erased and the data will get reset.
+ *
+ * Current stuct sizes:
+ * game_stats_t: 25 bytes
+ * global_stats_t: 16 bytes
+ *
+ * If the struct size is changed, the EEPROM must be
+ * reinitialized and the data will be reset to initial values.
  *
  */
 
@@ -41,7 +46,16 @@ typedef struct game_stats {
     uint32_t length_played;
     RTC_DateTypeDef sDate;
     char player_name[4];
-    uint16_t times_played;
 } game_stats_t;
+
+typedef struct global_stats {
+    options_difficulty_t difficulty;
+    uint16_t death_by_poison;
+    uint16_t death_by_wall;
+    uint16_t death_by_self;
+    uint16_t total_games_played;
+    uint16_t total_apples_eaten;
+    uint32_t total_time_played;
+} global_stats_t;
 
 #endif /* INC_GAME_STATS_H_ */
