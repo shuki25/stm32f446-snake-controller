@@ -74,6 +74,9 @@ void game_loop() {
     uint8_t order_of_play = 0;
     uint8_t perf_counter = 0;
     uint8_t death = 0;
+    menu_pause_t pause_selection = RESUME;
+    menu_settings_t settings_selection = BRIGHTNESS;
+    uint8_t settings_menu = 0;
 
     snake_status_t status = SNAKE_OK;
     snake_status_t status2 = SNAKE_OK;
@@ -293,6 +296,7 @@ void game_loop() {
                 ssd1306_Fill(Black);
                 ssd1306_SetCursor(14, 2);
                 ssd1306_WriteString("GAME OVER", Font_11x18, White);
+                ssd1306_UpdateScreen();
 //                ssd1306_SetCursor(25, 54);
 //                ssd1306_WriteString("Press Start", Font_7x10, White);
 
@@ -348,7 +352,7 @@ void game_loop() {
                 }
                 delay_counter++;
             }
-            if (game_over && delay_counter) {
+            if (game_over && delay_counter && death) {
 
                 ui_game_over_screen(&game_options, game_score, best_score, delay_counter, game_level,
                         death_reason, apples_eaten, game_elapsed_time);
@@ -357,9 +361,11 @@ void game_loop() {
                     delay_counter = 1;
                 }
             }
-            if (controller1.current_button_state == SNES_START_MASK) {
+            if (controller1.current_button_state == SNES_START_MASK || game_reset) {
+                if (!game_reset) {
+                    menu_game_options(&game_options, &controller1);
+                }
 
-                menu_game_options(&game_options, &controller1);
                 generate_wall(field, &game_options);
                 game_in_progress = 1;
 
@@ -373,6 +379,8 @@ void game_loop() {
                 apples_eaten[0] = 0;
                 apples_eaten[1] = 0;
                 death = 0;
+                game_pause = 0;
+                game_reset = 0;
 
                 best_score = game_stats[game_options.difficulty].high_score;
                 field->num_poisons_spawned = 0;
@@ -482,7 +490,60 @@ void game_loop() {
             osDelay(10);
         }
 
-        if (game_in_progress) {
+        if (game_in_progress && game_pause) {
+            ssd1306_Reset();
+            ssd1306_Init();
+            ssd1306_Fill(Black);
+
+            pause_selection = menu_pause_screen(&controller1);
+            if (pause_selection == RESUME) {
+                game_pause = 0;
+                ssd1306_Fill(Black);
+                if (game_options.num_players == ONE_PLAYER)
+                    ui_one_player(game_score[0], best_score, game_level);
+                else if (game_options.num_players == TWO_PLAYERS)
+                    ui_two_player(game_score[0], game_score[1], game_level);
+                update_screen = 1;
+            } else if (pause_selection == RESTART) {
+                game_in_progress = 0;
+                game_reset = 1;
+                game_pause = 0;
+            } else if (pause_selection == QUIT) {
+                game_in_progress = 0;
+                game_pause = 0;
+                game_reset = 0;
+                draw_home_screen();
+                WS2812_clear(&led);
+                WS2812_send(&led);
+            }
+            if (pause_selection == RESTART || pause_selection == QUIT) {
+                status = poison_food_destroy(field);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                status = destroy_wall(field);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                status = snake_destroy(field->snake1);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                if (game_options.num_players == TWO_PLAYERS) {
+                    status = snake_destroy(field->snake2);
+                    if (status != SNAKE_OK) {
+                        Error_Handler();
+                    }
+                }
+                if (status == SNAKE_OK) {
+                    field->snake1 = NULL;
+                    field->snake2 = NULL;
+                }
+                game_over = 1;
+                death = 0;
+            }
+        }
+        if (game_in_progress && !game_pause) {
             start_time = __HAL_TIM_GET_COUNTER(&htim2);
             snes_controller_read2(&controller1, &controller2);
             if (controller1.current_button_state != controller1.previous_button_state
@@ -497,7 +558,6 @@ void game_loop() {
                 }
                 if (controller1.current_button_state & SNES_START_MASK) {
                     game_pause = !game_pause;
-                    update_screen = 1;
                 } else if (controller1.current_button_state & SNES_SELECT_MASK) {
                     game_reset = 1;
                 } else if (controller1.current_button_state & SNES_R_MASK) {
