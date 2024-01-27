@@ -88,6 +88,11 @@ typedef enum {
 	NO_COLLISION, SNAKE_BODY_COLLISION, FOOD_COLLISION, POISON_FOOD_COLLISION, WALL_COLLISION
 } snake_collision_t;
 
+typedef struct controller_direction_t {
+    snake_direction_t current_direction;
+    snake_direction_t previous_direction;
+} controller_direction_t;
+
 typedef enum {
 	ONE_PLAYER, TWO_PLAYERS
 } options_num_players_t;
