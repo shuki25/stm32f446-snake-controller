@@ -20,6 +20,9 @@
 #include "snes_controller.h"
 #include "ring_buffer.h"
 #include "ui.h"
+#include "eeprom.h"
+#include "game_stats.h"
+#include "bcd_util.h"
 
 // Global variables
 
@@ -35,6 +38,9 @@ RingBuffer controller2_buffer;
 uint8_t update_screen_flag = 0;
 
 // External variables
+extern RTC_HandleTypeDef hrtc;
+
+extern I2C_HandleTypeDef hi2c1;
 extern SPI_HandleTypeDef hspi1;
 
 extern TIM_HandleTypeDef htim1;
@@ -89,6 +95,14 @@ void game_loop() {
     uint32_t game_end_time;
     uint32_t game_elapsed_time = 0;
 
+    eeprom_t eeprom;
+    eeprom_id_t eeprom_signature;
+    game_stats_t game_stats[NUM_DIFFICULTIES];
+    size_t game_stats_size = sizeof(game_stats_t);
+    RTC_TimeTypeDef sTime;
+    RTC_DateTypeDef sDate;
+    bcd_time_t current_datetime;
+
     uint8_t oled_buffer[20];
 
     /* Generate and initialize the grid lookup table */
@@ -132,6 +146,84 @@ void game_loop() {
             == RING_BUFFER_MALLOC_FAILED) {
         Error_Handler();
     }
+
+    // Initialize EEPROM for saving high score and game options
+
+    memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
+
+    for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+        game_stats[i].difficulty = i;
+        game_stats[i].poison = NO_POISON;
+        game_stats[i].high_score = 0;
+        game_stats[i].level = 0;
+        game_stats[i].num_apples_eaten = 0;
+        game_stats[i].length_played = 0;
+        game_stats[i].sDate.WeekDay = 0;
+        game_stats[i].sDate.Month = 1;
+        game_stats[i].sDate.Date = 1;
+        game_stats[i].sDate.Year = 24;
+        memcpy(game_stats[i].player_name, "AAA\0", 4);
+        game_stats[i].times_played = 0;
+    }
+
+    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+    bcd_rtc_to_bcd_time(&sTime, &sDate, &current_datetime);
+
+    eeprom_status_t eeprom_status = eeprom_init(&eeprom, &hi2c1, EEPROM_GPIO_Port, EEPROM_Pin);
+    if (eeprom_status == EEPROM_OK) {
+        // Verify EEPROM signature
+        eeprom_status = eeprom_get_signature(&eeprom, &eeprom_signature);
+        if (eeprom_status == EEPROM_OK) {
+            eeprom_status = eeprom_verify_signature(&eeprom_signature, NUM_DIFFICULTIES);
+            if (eeprom_status == EEPROM_OK) {
+                memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
+                for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                    eeprom_status = eeprom_read(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
+                            (uint16_t) game_stats_size);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+                // Bad signature, write new signature and initial game stats
+                // If it is on the first run, the signature will return as bad.
+            } else if (eeprom_status == EEPROM_SIGNATURE_MISMATCH) {
+                eeprom_generate_signature(&eeprom_signature, NUM_DIFFICULTIES);
+                eeprom_status = eeprom_write_signature(&eeprom, &eeprom_signature);
+                if (eeprom_status != EEPROM_OK) {
+                    Error_Handler();
+                }
+                if (eeprom.write_protected == 1) {
+                    eeprom_status = eeprom_write_protect(&eeprom, 0);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+                for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                    eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
+                            (uint16_t) game_stats_size);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+                if (eeprom.write_protected == 0) {
+                    eeprom_status = eeprom_write_protect(&eeprom, 1);
+                    if (eeprom_status != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                }
+            } else {
+                Error_Handler();
+            }
+        } else {
+            Error_Handler();
+        }
+
+    } else {
+        Error_Handler();
+    }
+
+    game_start_time = __HAL_TIM_GET_COUNTER(&htim2);
 
     controller1.previous_button_state = 0xffff;
     controller2.previous_button_state = 0xffff;

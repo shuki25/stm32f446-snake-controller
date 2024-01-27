@@ -15,7 +15,13 @@
 #define MAX_GAME_PACE 60
 #define GAME_PACE_STEP 5
 
+// Date Format
+#define DATE_FORMAT "%04d-%02d-%02d"
+#define TIME_FORMAT "%02d:%02d:%02d"
 
+// EEPROM Defines
+#define EEPROM_DATE_PAGE 0
+#define EEPROM_DATE_OFFSET 0
 
 void game_loop();
 

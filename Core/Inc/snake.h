@@ -98,7 +98,7 @@ typedef enum {
 } options_num_players_t;
 
 typedef enum {
-	EASY, MEDIUM, HARD, INSANE
+	EASY, MEDIUM, HARD, INSANE, NUM_DIFFICULTIES
 } options_difficulty_t;
 
 typedef enum {
