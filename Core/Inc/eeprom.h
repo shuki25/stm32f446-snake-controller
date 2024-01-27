@@ -22,13 +22,22 @@ extern "C" {
 #define EEPROM_PAGE_SIZE 32
 #define EEPROM_PAGE_NUM 256
 
+
+#define EEPROM_SIGNATURE "SNAKEBIT"
+#define EEPROM_VERSION 1
+#define EEPROM_REVISION 2
+#define EEPROM_SIGNATURE_PAGE 0
+#define EEPROM_SIGNATURE_OFFSET 0
+#define EEPROM_START_PAGE 1
+
 typedef enum {
     EEPROM_OK = 0,
     EEPROM_ERROR = 1,
     EEPROM_BUSY = 2,
     EEPROM_TIMEOUT = 3,
     EEPROM_MALLOC_FAILED = 4,
-    EEPROM_WRITE_PROTECTED = 5
+    EEPROM_WRITE_PROTECTED = 5,
+    EEPROM_SIGNATURE_MISMATCH = 6
 } eeprom_status_t;
 
 typedef struct {
@@ -38,11 +47,21 @@ typedef struct {
     uint8_t write_protected;
 } eeprom_t;
 
+typedef struct {
+    char signature[9];
+    uint8_t version;
+    uint8_t revision;
+    uint8_t num_pages;
+} eeprom_id_t;
+
 eeprom_status_t eeprom_init(eeprom_t *eeprom, I2C_HandleTypeDef *hi2c, GPIO_TypeDef *wc_port, uint16_t wc_pin);
 eeprom_status_t eeprom_write_protect(eeprom_t *eeprom, uint8_t state);
 eeprom_status_t eeprom_write(eeprom_t *eeprom, uint16_t page, uint16_t offset, uint8_t *data, uint16_t size);
 eeprom_status_t eeprom_read(eeprom_t *eeprom, uint16_t page, uint16_t offset, uint8_t *data, uint16_t size);
-
+void eeprom_generate_signature(eeprom_id_t *signature, uint8_t num_pages);
+eeprom_status_t eeprom_get_signature(eeprom_t *eeprom, eeprom_id_t *signature);
+eeprom_status_t eeprom_write_signature(eeprom_t *eeprom, eeprom_id_t *signature);
+eeprom_status_t eeprom_verify_signature(eeprom_id_t *signature, uint8_t num_pages);
 #ifdef __cplusplus
 }
 #endif

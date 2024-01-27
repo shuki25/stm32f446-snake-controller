@@ -125,3 +125,61 @@ eeprom_status_t eeprom_read(eeprom_t *eeprom, uint16_t page, uint16_t offset, ui
 
     return EEPROM_OK;
 }
+
+void eeprom_generate_signature(eeprom_id_t *signature, uint8_t num_entries) {
+
+    memset(signature, 0, sizeof(eeprom_id_t));
+    memcpy(signature->signature, EEPROM_SIGNATURE, 8);
+    signature->version = EEPROM_VERSION;
+    signature->revision = EEPROM_REVISION;
+    signature->num_pages = num_entries;
+}
+
+eeprom_status_t eeprom_verify_signature(eeprom_id_t *signature, uint8_t num_entries) {
+
+    eeprom_id_t correct_signature;
+    eeprom_generate_signature(&correct_signature, num_entries);
+
+    if (memcmp(&correct_signature, signature, sizeof(eeprom_id_t)) != 0) {
+        return EEPROM_SIGNATURE_MISMATCH;
+    }
+    return EEPROM_OK;
+}
+
+eeprom_status_t eeprom_get_signature(eeprom_t *eeprom, eeprom_id_t *signature) {
+    eeprom_status_t status;
+    uint8_t buffer[EEPROM_PAGE_SIZE];
+
+    status = eeprom_read(eeprom, EEPROM_SIGNATURE_PAGE, EEPROM_SIGNATURE_OFFSET, buffer, sizeof(eeprom_id_t));
+    if (status != EEPROM_OK) {
+        return status;
+    }
+    memcpy(signature, buffer, sizeof(eeprom_id_t));
+    return EEPROM_OK;
+}
+
+eeprom_status_t eeprom_write_signature(eeprom_t *eeprom, eeprom_id_t *signature) {
+    eeprom_status_t status;
+    uint8_t buffer[EEPROM_PAGE_SIZE];
+
+    memcpy(buffer, signature, sizeof(eeprom_id_t));
+    if (eeprom->write_protected == 1) {
+        status = eeprom_write_protect(eeprom, 0);
+        if (status != EEPROM_OK) {
+            return status;
+        }
+    }
+    status = eeprom_write(eeprom, EEPROM_SIGNATURE_PAGE, EEPROM_SIGNATURE_OFFSET, buffer, sizeof(eeprom_id_t));
+
+    if (status != EEPROM_OK) {
+        return status;
+    }
+
+    if (eeprom->write_protected == 0) {
+        eeprom_write_protect(eeprom, 1);
+    }
+
+    return EEPROM_OK;
+}
+
+
