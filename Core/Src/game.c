@@ -271,34 +271,26 @@ void game_loop() {
             snes_controller_read2(&controller1, &controller2);
             if (!game_over) {
 
-                if (controller1.current_button_state != controller1.previous_button_state) {
-
-                    ssd1306_SetCursor(0, 3);
-                    ssd1306_WriteString("Controller 1", Font_7x10, White);
-                    snprintf((char*) oled_buffer, 16, "c: %04x p: %04x", controller1.current_button_state,
-                            controller1.previous_button_state);
-                    ssd1306_SetCursor(0, 15);
-                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
-                    ssd1306_UpdateScreen();
-                }
-                if (controller2.current_button_state != controller2.previous_button_state) {
-                    ssd1306_SetCursor(0, 32);
-                    ssd1306_WriteString("Controller 2", Font_7x10, White);
-                    snprintf((char*) oled_buffer, 16, "c: %04x p: %04x", controller2.current_button_state,
-                            controller2.previous_button_state);
-                    ssd1306_SetCursor(0, 42);
-                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
-                    ssd1306_UpdateScreen();
-                }
+//                if (controller1.current_button_state != controller1.previous_button_state) {
+//
+//                    ssd1306_SetCursor(0, 3);
+//                    ssd1306_WriteString("Controller 1", Font_7x10, White);
+//                    snprintf((char*) oled_buffer, 16, "c: %04x p: %04x", controller1.current_button_state,
+//                            controller1.previous_button_state);
+//                    ssd1306_SetCursor(0, 15);
+//                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+//                    ssd1306_UpdateScreen();
+//                }
+//                if (controller2.current_button_state != controller2.previous_button_state) {
+//                    ssd1306_SetCursor(0, 32);
+//                    ssd1306_WriteString("Controller 2", Font_7x10, White);
+//                    snprintf((char*) oled_buffer, 16, "c: %04x p: %04x", controller2.current_button_state,
+//                            controller2.previous_button_state);
+//                    ssd1306_SetCursor(0, 42);
+//                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+//                    ssd1306_UpdateScreen();
+//                }
             } else if (game_over && !delay_counter) {
-                ssd1306_Reset();
-                ssd1306_Init();
-                ssd1306_Fill(Black);
-                ssd1306_SetCursor(14, 2);
-                ssd1306_WriteString("GAME OVER", Font_11x18, White);
-                ssd1306_UpdateScreen();
-//                ssd1306_SetCursor(25, 54);
-//                ssd1306_WriteString("Press Start", Font_7x10, White);
 
                 if (game_options.num_players == ONE_PLAYER) {
                     if (best_score > game_stats[game_options.difficulty].high_score) {
@@ -332,7 +324,7 @@ void game_loop() {
                         }
                     }
                     eeprom_status = eeprom_write(&eeprom,
-                            EEPROM_START_PAGE + NUM_DIFFICULTIES + game_options.difficulty, 0,
+                    EEPROM_START_PAGE + NUM_DIFFICULTIES + game_options.difficulty, 0,
                             (uint8_t*) &global_stats[game_options.difficulty], (uint16_t) global_stats_size);
                     if (game_stats_updated) {
                         eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + game_options.difficulty, 0,
@@ -350,6 +342,10 @@ void game_loop() {
                         }
                     }
                 }
+
+                ssd1306_Fill(Black);
+                ssd1306_SetCursor(14, 0);
+                ssd1306_WriteString("GAME OVER", Font_11x18, White);
                 delay_counter++;
             }
             if (game_over && delay_counter && death) {
@@ -360,6 +356,18 @@ void game_loop() {
                 if (delay_counter > UI_DELAY * 3) {
                     delay_counter = 1;
                 }
+
+                if (controller1.current_button_state == SNES_B_MASK) {
+                    game_over = 0;
+                    game_reset = 0;
+                    game_pause = 0;
+                    game_in_progress = 0;
+                    death = 0;
+                    draw_home_screen();
+                    WS2812_clear(&led);
+                    WS2812_send(&led);
+                }
+
             }
             if (controller1.current_button_state == SNES_START_MASK || game_reset) {
                 if (!game_reset) {
@@ -477,6 +485,7 @@ void game_loop() {
 
                 // Draw OLED screen
                 ssd1306_Reset();
+                osDelay(10);
                 ssd1306_Init();
                 ssd1306_Fill(Black);
 
@@ -491,8 +500,7 @@ void game_loop() {
         }
 
         if (game_in_progress && game_pause) {
-            ssd1306_Reset();
-            ssd1306_Init();
+
             ssd1306_Fill(Black);
 
             pause_selection = menu_pause_screen(&controller1);

@@ -34,12 +34,10 @@ void clear_line(uint8_t width, uint8_t y_pos, FontDef font) {
 
 void menu_game_options(game_options_t *options, snes_controller_t *controller) {
 
-    ssd1306_SetDisplayOn(0);
     ssd1306_Fill(Black);
     ssd1306_SetCursor(14, 2);
     ssd1306_WriteString("GAME MODE", Font_11x18, White);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
-    ssd1306_SetDisplayOn(1);
 
     uint8_t done = 0;
     uint8_t option_changed = 1;
@@ -61,6 +59,7 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                     option_position--;
                     option_changed = 1;
                     counter = 0;
+                    blink_state = 1;
                 }
             } else if (controller->current_button_state & SNES_DOWN_MASK) {
                 if (options->difficulty == 3 && option_position == 1) {
@@ -73,6 +72,7 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                     option_position++;
                     option_changed = 1;
                     counter = 0;
+                    blink_state = 1;
                 }
             } else if (controller->current_button_state & SNES_LEFT_MASK) {
                 if (option_position == 0) {
@@ -194,6 +194,7 @@ menu_pause_t menu_pause_screen(snes_controller_t *controller) {
                     ssd1306_WriteString(" ", Font_7x10, White);
                     option_position--;
                     counter = 0;
+                    blink_state = 1;
                 }
             } else if (controller->current_button_state & SNES_DOWN_MASK) {
                if (option_position < 2) {
@@ -203,6 +204,7 @@ menu_pause_t menu_pause_screen(snes_controller_t *controller) {
                     ssd1306_WriteString(" ", Font_7x10, White);
                     option_position++;
                     counter = 0;
+                    blink_state = 1;
                 }
             } else if (controller->current_button_state & SNES_A_MASK) {
                 done = 1;

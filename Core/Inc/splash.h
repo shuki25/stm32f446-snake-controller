@@ -12,5 +12,6 @@
 #include "ssd1306.h"
 
 void splash(void);
+void draw_home_screen(void);
 
 #endif /* INC_SPLASH_H_ */

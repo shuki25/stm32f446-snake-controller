@@ -69,6 +69,9 @@ void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t
     uint8_t oled_buffer[24];
     uint8_t len;
 
+    ssd1306_SetCursor(14, 0);
+    ssd1306_WriteString("GAME OVER", Font_11x18, White);
+
     if (options->num_players == ONE_PLAYER) {
         if (delay_counter <= 1) {
             ssd1306_SetCursor(1, 26);
