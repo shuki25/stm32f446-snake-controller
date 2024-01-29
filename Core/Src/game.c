@@ -77,6 +77,7 @@ void game_loop() {
     menu_pause_t pause_selection = RESUME;
     menu_settings_t settings_selection = BRIGHTNESS;
     uint8_t settings_menu = 0;
+    uint8_t is_done = 0;
 
     snake_status_t status = SNAKE_OK;
     snake_status_t status2 = SNAKE_OK;
@@ -369,6 +370,118 @@ void game_loop() {
                 }
 
             }
+
+            if (controller1.current_button_state == SNES_SELECT_MASK) {
+                settings_selection = menu_settings_screen(&controller1);
+
+                if (settings_selection == SET_CLOCK) {
+                    // Get Current Date/Time
+                    HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+                    HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+                    if (menu_set_clock(&sDate, &sTime, &controller1)) {
+                        HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+                        HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+                    }
+                } else if (settings_selection == BRIGHTNESS) {
+                    ssd1306_Fill(Black);
+                    ssd1306_SetCursor(22, 15);
+                    ssd1306_WriteString("Press L/R to", Font_7x10, White);
+                    ssd1306_SetCursor(4, 29);
+                    ssd1306_WriteString("Adjust Brightness", Font_7x10, White);
+                    ssd1306_UpdateScreen();
+
+                    grid_brightness_test(&led, GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
+
+                    is_done = 0;
+                    while (!is_done) {
+                        snes_controller_read(&controller1);
+                        if (controller1.current_button_state == 0) {
+                            is_done = 1;
+                        }
+                        osDelay(10);
+                    }
+
+                    is_done = 0;
+                    while (!is_done) {
+                        snes_controller_read(&controller1);
+                        if (controller1.current_button_state == SNES_L_MASK
+                                || controller1.current_button_state == SNES_R_MASK) {
+                            if (controller1.current_button_state == SNES_L_MASK && led.brightness > 0) {
+                                led.brightness--;
+                            } else if (controller1.current_button_state == SNES_R_MASK
+                                    && led.brightness < 45) {
+                                led.brightness++;
+                            }
+                            destroy_brightness_lookup_table(brightness_lookup);
+                            brightness_lookup = generate_brightness_lookup_table(led.brightness);
+                            grid_brightness_test(&led, GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
+                            ssd1306_SetCursor(57, 48);
+                            sprintf((char*) oled_buffer, "%02d", led.brightness);
+                            ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+                            ssd1306_UpdateScreen();
+                        } else if (controller1.current_button_state == SNES_B_MASK
+                                || controller1.current_button_state == SNES_Y_MASK) {
+                            is_done = 1;
+                            WS2812_clear(&led);
+                            WS2812_send(&led);
+                        }
+                        osDelay(100);
+                    }
+
+                    // TODO: Implement brightness control for WS2812 LEDs
+                } else if (settings_selection == CLEAR_HIGH_SCORE) {
+                    ssd1306_Fill(Black);
+                    ssd1306_SetCursor(8, 3);
+                    ssd1306_WriteString("Confirm to Reset", Font_7x10, White);
+                    ssd1306_SetCursor(25, 20);
+                    ssd1306_WriteString("B = Confirm", Font_7x10, White);
+                    ssd1306_SetCursor(29, 32);
+                    ssd1306_WriteString("Y = Cancel", Font_7x10, White);
+                    ssd1306_UpdateScreen();
+
+                    while (controller1.current_button_state != SNES_B_MASK
+                            && controller1.current_button_state != SNES_Y_MASK) {
+                        snes_controller_read(&controller1);
+                    }
+
+                    if (controller1.current_button_state == SNES_B_MASK) {
+                        ssd1306_Fill(Black);
+                        ssd1306_SetCursor(22, 27);
+                        ssd1306_WriteString("Resetting...", Font_7x10, White);
+                        ssd1306_UpdateScreen();
+                        eeprom_status = eeprom_write_protect(&eeprom, 0);
+                        if (eeprom_status != EEPROM_OK) {
+                            Error_Handler();
+                        }
+                        for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                            eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + i, 0,
+                                    (uint8_t*) &game_stats[i], (uint16_t) game_stats_size);
+                            if (eeprom_status != EEPROM_OK) {
+                                Error_Handler();
+                            }
+                        }
+                        for (int i = 0; i < NUM_DIFFICULTIES; i++) {
+                            eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + NUM_DIFFICULTIES + i, 0,
+                                    (uint8_t*) &global_stats[i], (uint16_t) global_stats_size);
+                            if (eeprom_status != EEPROM_OK) {
+                                Error_Handler();
+                            }
+                        }
+                        eeprom_status = eeprom_write_protect(&eeprom, 1);
+                        if (eeprom_status != EEPROM_OK) {
+                            Error_Handler();
+                        }
+                        ssd1306_Fill(Black);
+                        ssd1306_SetCursor(15, 27);
+                        ssd1306_WriteString("Reset Complete", Font_7x10, White);
+                        ssd1306_UpdateScreen();
+                        osDelay(2000);
+                    }
+                }
+                draw_home_screen();
+            }
+
             if (controller1.current_button_state == SNES_START_MASK || game_reset) {
                 if (!game_reset) {
                     menu_game_options(&game_options, &controller1);
@@ -501,6 +614,7 @@ void game_loop() {
 
         if (game_in_progress && game_pause) {
 
+            ssd1306_Init();
             ssd1306_Fill(Black);
 
             pause_selection = menu_pause_screen(&controller1);
