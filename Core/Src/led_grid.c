@@ -28,7 +28,7 @@ uint16_t** generate_lookup_grid(uint8_t width, uint8_t height, uint8_t x_panel, 
 
     // Generate a lookup table for the LED grid (one panel is 16x16 LEDS arranged in x_panel by y_panel) and in zig-zag pattern
 
-    for (int i=0; i < x_panel; i++) {
+    for (int i = 0; i < x_panel; i++) {
         for (int j = 0; j < y_panel; j++) {
             for (int x = 0; x < width / x_panel; x++) {
                 if (x % 2 == 0) {
@@ -117,5 +117,38 @@ void grid_test(led_t *led_obj, uint8_t width, uint8_t height) {
             osDelay(5);
         }
     }
+}
+
+void grid_brightness_test(led_t *led_obj, uint8_t width, uint8_t height) {
+
+    uint16_t num_leds = width * height;
+    uint8_t part_size = num_leds / 4;
+    uint8_t color_increment = 255 / part_size;
+    uint8_t color_group = 0;
+    uint8_t counter = 0;
+
+    WS2812_clear(led_obj);
+
+    for (int y = 0; y < height; y++) {
+        if (counter == part_size) {
+            color_group++;
+            counter = 0;
+        }
+        for (int x = 0; x < width; x++) {
+
+            uint16_t led_pos = grid_lookup[x][y];
+            if (color_group == 1) {
+                WS2812_set_LED(led_obj, led_pos, counter, 0, 0);
+            } else if (color_group == 2) {
+                WS2812_set_LED(led_obj, led_pos, 0, counter, 0);
+            } else if (color_group == 3) {
+                WS2812_set_LED(led_obj, led_pos, 0, 0, counter);
+            } else {
+                WS2812_set_LED(led_obj, led_pos, counter, counter, counter);
+            }
+            counter += color_increment;
+        }
+    }
+    WS2812_send(led_obj);
 }
 
