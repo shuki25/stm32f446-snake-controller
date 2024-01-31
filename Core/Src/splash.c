@@ -49,12 +49,12 @@ void splash(void) {
 void draw_home_screen(void) {
 
     ssd1306_Init();
-    ssd1306_SetContrast(20);
+    ssd1306_UpdateScreen();
+//    ssd1306_SetContrast(20);
     ssd1306_Fill(Black);
     ssd1306_DrawBitmap(0, 0, snake_game_logo, 128, 64, White);
     ssd1306_SetCursor(25, 49);
     ssd1306_WriteString("Press Start", Font_7x10, White);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
     ssd1306_UpdateScreen();
-
 }

@@ -288,7 +288,8 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
     while (!done) {
         snes_controller_read(controller);
 
-        if ((controller->current_button_state != controller->previous_button_state || (controller->current_button_state == controller->previous_button_state))
+        if ((controller->current_button_state != controller->previous_button_state
+                || (controller->current_button_state == controller->previous_button_state))
                 && controller->current_button_state) {
             if (controller->current_button_state & SNES_LEFT_MASK) {
                 if (column_position > 0) {
@@ -363,7 +364,7 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
                     counter = 0;
                 }
             } else if (controller->current_button_state & SNES_Y_MASK) {
-               return 0;
+                return 0;
             } else if (controller->current_button_state & SNES_B_MASK) {
                 value[column_position] = cursor_value;
                 done = 1;
@@ -416,7 +417,7 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
             ssd1306_UpdateScreen();
         }
 
-        osDelay(BLINK_DELAY*3);
+        osDelay(BLINK_DELAY * 3);
         counter--;
     }
 
@@ -506,30 +507,85 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
     return option_position;
 }
 
+void menu_player_initials(char *player_initials, uint16_t high_score, snes_controller_t *controller) {
 
-//void menu_player_initials(char *player_initials) {
-//    ssd1306_Fill(Black);
-//    ssd1306_SetCursor(14, 2);
-//    ssd1306_WriteString("PLAYER INITIALS", Font_11x18, White);
-//    ssd1306_DrawRectangle(0, 0, 127, 63, White);
-//
-//    uint8_t done = 0;
-//    uint8_t option_changed = 1;
-//    uint8_t option_position = 0;
-//    uint8_t blink_state = 1;
-//    uint8_t y_pos[3] = { 24, 38, 52 };
-//    uint8_t counter = 10;
-//
-//    while (!done) {
-//        if (option_changed) {
-//            uint8_t x_pos = center_text(player_initials, Font_7x10);
-//            clear_line(16, y_pos[0], Font_7x10);
-//            ssd1306_SetCursor(x_pos, y_pos[0]);
-//            ssd1306_WriteString((char*) player_initials, Font_7x10, White);
-//            option_changed = 0;
-//        }
-//
-//        snes_controller_t controller;
-//        snes_controller_read(&controller);
-//    }
-//}
+    char buffer[20];
+
+    ssd1306_Init();
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(9, 2);
+    ssd1306_WriteString("High Score", Font_11x18, White);
+    ssd1306_SetCursor(42, 20);
+    sprintf(buffer, "%04d", high_score);
+    ssd1306_WriteString(buffer, Font_11x18, White);
+    ssd1306_SetCursor(53, 40);
+    ssd1306_WriteString("AAA", Font_7x10, White);
+    ssd1306_DrawRectangle(0, 0, 127, 63, White);
+    ssd1306_SetCursor(36, 53);
+    ssd1306_WriteString("B = Save", Font_7x10, White);
+    ssd1306_UpdateScreen();
+
+    memset(player_initials, 0, 4);
+    memset(player_initials, 'A', 3);
+
+    uint8_t is_done = 0;
+    uint8_t initial_position = 0;
+    uint8_t blink_state = 1;
+    uint8_t counter = 3;
+
+    while (!is_done) {
+        snes_controller_read(controller);
+
+        if ((controller->current_button_state != controller->previous_button_state
+                || (controller->current_button_state == controller->previous_button_state))
+                && controller->current_button_state) {
+            if (controller->current_button_state & SNES_UP_MASK) {
+                if (player_initials[initial_position] < 'Z') {
+                    player_initials[initial_position]++;
+                    blink_state = 1;
+                    counter = 0;
+                }
+            } else if (controller->current_button_state & SNES_DOWN_MASK) {
+                if (player_initials[initial_position] > 'A') {
+                    player_initials[initial_position]--;
+                    blink_state = 1;
+                    counter = 0;
+                }
+            } else if (controller->current_button_state & SNES_LEFT_MASK) {
+                if (initial_position > 0) {
+                    ssd1306_SetCursor(53 + (initial_position * 7), 40);
+                    ssd1306_WriteString(&player_initials[initial_position], Font_7x10, White);
+                    initial_position--;
+                    blink_state = 1;
+                    counter = 0;
+                }
+            } else if (controller->current_button_state & SNES_RIGHT_MASK) {
+                if (initial_position < 2) {
+                    ssd1306_SetCursor(53 + (initial_position * 7), 40);
+                    ssd1306_WriteString(&player_initials[initial_position], Font_7x10, White);
+                    initial_position++;
+                    blink_state = 1;
+                    counter = 0;
+                }
+            } else if (controller->current_button_state & SNES_B_MASK) {
+                is_done = 1;
+            }
+        }
+
+        if (blink_state && !counter) {
+            ssd1306_SetCursor(53 + (initial_position * 7), 40);
+            ssd1306_WriteString(&player_initials[initial_position], Font_7x10, White);
+            blink_state = 0;
+            counter = 3;
+            ssd1306_UpdateScreen();
+        } else if (!blink_state && !counter) {
+            ssd1306_SetCursor(53 + (initial_position * 7), 40);
+            ssd1306_WriteString(" ", Font_7x10, White);
+            blink_state = 1;
+            counter = 3;
+            ssd1306_UpdateScreen();
+        }
+        counter--;
+        osDelay(BLINK_DELAY * 3);
+    }
+}

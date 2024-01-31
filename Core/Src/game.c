@@ -76,7 +76,6 @@ void game_loop() {
     uint8_t death = 0;
     menu_pause_t pause_selection = RESUME;
     menu_settings_t settings_selection = BRIGHTNESS;
-    uint8_t settings_menu = 0;
     uint8_t is_done = 0;
 
     snake_status_t status = SNAKE_OK;
@@ -295,6 +294,18 @@ void game_loop() {
 
                 if (game_options.num_players == ONE_PLAYER) {
                     if (best_score > game_stats[game_options.difficulty].high_score) {
+
+                        menu_player_initials(game_stats[game_options.difficulty].player_name, best_score, &controller1);
+
+                        is_done = 0;
+                        while (!is_done) {  // Wait for button release
+                            snes_controller_read(&controller1);
+                            if (controller1.current_button_state == 0) {
+                                is_done = 1;
+                            }
+                            osDelay(10);
+                        }
+
                         game_stats[game_options.difficulty].high_score = best_score;
                         game_stats[game_options.difficulty].poison = game_options.poison;
                         game_stats[game_options.difficulty].num_apples_eaten = apples_eaten[0];
@@ -352,7 +363,7 @@ void game_loop() {
             if (game_over && delay_counter && death) {
 
                 ui_game_over_screen(&game_options, game_score, best_score, delay_counter, game_level,
-                        death_reason, apples_eaten, game_elapsed_time);
+                        death_reason, apples_eaten, game_elapsed_time, game_stats[game_options.difficulty].player_name);
                 delay_counter++;
                 if (delay_counter > UI_DELAY * 3) {
                     delay_counter = 1;
