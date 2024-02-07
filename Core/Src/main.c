@@ -19,6 +19,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "usb_host.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -221,12 +222,11 @@ void SystemClock_Config(void) {
     /** Initializes the RCC Oscillators according to the specified parameters
      * in the RCC_OscInitTypeDef structure.
      */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_LSE;
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE | RCC_OSCILLATORTYPE_LSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
     RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
     RCC_OscInitStruct.PLL.PLLM = 8;
     RCC_OscInitStruct.PLL.PLLN = 168;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
@@ -627,35 +627,27 @@ static void MX_GPIO_Init(void) {
     __HAL_RCC_GPIOD_CLK_ENABLE();
 
     /*Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOC, LED_SNES1_Pin | LED_SNES0_Pin | LED_HB_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, LED_SNES1_Pin | OLED_RST_Pin | LED_SNES0_Pin | LED_HB_Pin, GPIO_PIN_RESET);
 
     /*Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOA, OLED_RST_Pin | USB_OTG_EN_Pin, GPIO_PIN_RESET);
-
-    /*Configure GPIO pin Output Level */
-    HAL_GPIO_WritePin(GPIOB, OLED_CS_Pin | OLED_DC_Pin | HID_OUT_Pin | SNES_LATCH_Pin | EEPROM_Pin,
-            GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOB, OLED_CS_Pin | OLED_DC_Pin | SNES_LATCH_Pin | EEPROM_Pin, GPIO_PIN_RESET);
 
     /*Configure GPIO pin Output Level */
     HAL_GPIO_WritePin(SNES_CLOCK_GPIO_Port, SNES_CLOCK_Pin, GPIO_PIN_SET);
 
+    /*Configure GPIO pin Output Level */
+    HAL_GPIO_WritePin(USB_OTG_EN_GPIO_Port, USB_OTG_EN_Pin, GPIO_PIN_RESET);
+
     /*Configure GPIO pins : PC13 PC0 PC1 PC4
-     PC5 PC6 PC9 PC10
-     PC11 */
-    GPIO_InitStruct.Pin = GPIO_PIN_13 | GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6
-            | GPIO_PIN_9 | GPIO_PIN_10 | GPIO_PIN_11;
+     PC6 PC9 PC10 PC11 */
+    GPIO_InitStruct.Pin = GPIO_PIN_13 | GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_6 | GPIO_PIN_9
+            | GPIO_PIN_10 | GPIO_PIN_11;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    /*Configure GPIO pins : PH0 PH1 */
-    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
-
-    /*Configure GPIO pins : LED_SNES1_Pin LED_SNES0_Pin LED_HB_Pin */
-    GPIO_InitStruct.Pin = LED_SNES1_Pin | LED_SNES0_Pin | LED_HB_Pin;
+    /*Configure GPIO pins : LED_SNES1_Pin OLED_RST_Pin LED_SNES0_Pin LED_HB_Pin */
+    GPIO_InitStruct.Pin = LED_SNES1_Pin | OLED_RST_Pin | LED_SNES0_Pin | LED_HB_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -667,30 +659,22 @@ static void MX_GPIO_Init(void) {
     GPIO_InitStruct.Pull = GPIO_PULLDOWN;
     HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-    /*Configure GPIO pins : PA0 PA1 PA4 PA9
-     PA11 PA12 PA15 */
-    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_9 | GPIO_PIN_11 | GPIO_PIN_12
-            | GPIO_PIN_15;
+    /*Configure GPIO pins : PA0 PA1 PA4 PA15 */
+    GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_4 | GPIO_PIN_15;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /*Configure GPIO pin : OLED_RST_Pin */
-    GPIO_InitStruct.Pin = OLED_RST_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    HAL_GPIO_Init(OLED_RST_GPIO_Port, &GPIO_InitStruct);
-
-    /*Configure GPIO pins : OLED_CS_Pin OLED_DC_Pin HID_OUT_Pin EEPROM_Pin */
-    GPIO_InitStruct.Pin = OLED_CS_Pin | OLED_DC_Pin | HID_OUT_Pin | EEPROM_Pin;
+    /*Configure GPIO pins : OLED_CS_Pin OLED_DC_Pin EEPROM_Pin */
+    GPIO_InitStruct.Pin = OLED_CS_Pin | OLED_DC_Pin | EEPROM_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-    /*Configure GPIO pins : PB12 PB15 PB8 PB9 */
-    GPIO_InitStruct.Pin = GPIO_PIN_12 | GPIO_PIN_15 | GPIO_PIN_8 | GPIO_PIN_9;
+    /*Configure GPIO pins : PB10 PB12 PB15 PB5
+     PB8 PB9 */
+    GPIO_InitStruct.Pin = GPIO_PIN_10 | GPIO_PIN_12 | GPIO_PIN_15 | GPIO_PIN_5 | GPIO_PIN_8 | GPIO_PIN_9;
     GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
@@ -746,6 +730,8 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim) {
  */
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument) {
+    /* init code for USB_HOST */
+    MX_USB_HOST_Init();
     /* USER CODE BEGIN 5 */
     game_loop();
     /* USER CODE END 5 */
