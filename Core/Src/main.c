@@ -152,6 +152,10 @@ int main(void) {
     SNES_LATCH_Pin,
     SNES_CLOCK_GPIO_Port, SNES_CLOCK_Pin, SNES_DATA1_GPIO_Port,
     SNES_DATA1_Pin);
+//    if (HAL_I2C_EnableListen_IT(&hi2c1) != HAL_OK) {
+//        Error_Handler();
+//    }
+
     /* USER CODE END 2 */
 
     /* Init scheduler */
