@@ -39,6 +39,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define RTC_DRIFT_CORRECTION_DIR 1 // 1 for fast, -1 for slow
+#define RTC_DRIFT_NUM_SECONDS 1
+#define RTC_DRIFT_CORRECTION_VALUE (RTC_DRIFT_NUM_SECONDS / 0.0824) // Value to adjust the RTC by to correct for drift
 
 /* USER CODE END PD */
 
@@ -315,6 +318,15 @@ static void MX_RTC_Init(void) {
     }
     /* USER CODE BEGIN RTC_Init 2 */
 
+    // Set the RTC drift correction
+    // If the RTC is too fast, we can use the following to slow it down.
+#if RTC_DRIFT_CORRECTION_DIR == 1
+    HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC, RTC_SMOOTHCALIB_PLUSPULSES_RESET, RTC_DRIFT_CORRECTION_VALUE);
+
+#elif RTC_DRIFT_CORRECTION_DIR == -1
+    // If the RTC is too slow, we can use the following to speed it up.
+    HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC, RTC_SMOOTHCALIB_PLUSPULSES_SET, 512 - RTC_DRIFT_CORRECTION_VALUE);
+#endif
     /* USER CODE END RTC_Init 2 */
 
 }
