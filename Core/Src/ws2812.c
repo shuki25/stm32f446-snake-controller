@@ -82,7 +82,7 @@ WS2812_error_t WS2812_init(led_t *led_obj, TIM_HandleTypeDef *htim, const uint32
 //            return WS2812_MALLOC_FAILED;
 //        }
 //    }
-    led_obj->pwm_data = (uint16_t*) pvPortMalloc((sizeof(uint16_t) * ((adj_num_leds * 24) + 50)));
+    led_obj->pwm_data = (uint16_t*) pvPortMalloc((sizeof(uint16_t) * ((adj_num_leds * 24) + 60)));
     if (led_obj->pwm_data == NULL) {
         return WS2812_MALLOC_FAILED;
     }
@@ -166,7 +166,7 @@ void WS2812_send(led_t *led_obj) {
         }
     }
 
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 60; i++) {
         led_obj->pwm_data[indx] = 0;
         indx++;
     }
