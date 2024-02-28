@@ -142,7 +142,7 @@ void game_loop() {
 
     // Grid test
 
-    //grid_test(&led, 32, 16);
+//    grid_test(&led, 32, 16);
 
     // Initialize the ring buffer for controllers
     if (ring_buffer_init(&controller1_buffer, RING_BUFFER_SIZE, sizeof(controller_direction_t))
@@ -267,6 +267,11 @@ void game_loop() {
 
     /* Infinite loop */
     for (;;) {
+
+        /*-------------------------------------------------------
+         * Game is not in progress, awaiting user input
+         *-------------------------------------------------------*/
+
         if (!game_in_progress) {
             snes_controller_read2(&controller1, &controller2);
             if (!game_over) {
@@ -290,12 +295,22 @@ void game_loop() {
 //                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
 //                    ssd1306_UpdateScreen();
 //                }
+
             } else if (game_over && !delay_counter) {
 
+                /*-------------------------------------------------------
+                 * Game over screen (Game not in progress)
+                 *-------------------------------------------------------*/
+
                 if (game_options.num_players == ONE_PLAYER) {
+
+                    /*-------------------------------------------------------
+                     * High score achieved, get player initials
+                     *-------------------------------------------------------*/
                     if (best_score > game_stats[game_options.difficulty].high_score) {
 
-                        menu_player_initials(game_stats[game_options.difficulty].player_name, best_score, &controller1);
+                        menu_player_initials(game_stats[game_options.difficulty].player_name, best_score,
+                                &controller1);
 
                         is_done = 0;
                         while (!is_done) {  // Wait for button release
@@ -360,10 +375,16 @@ void game_loop() {
                 ssd1306_WriteString("GAME OVER", Font_11x18, White);
                 delay_counter++;
             }
+
+            /*-------------------------------------------------------
+             * Game over screen (Game not in progress)
+             *-------------------------------------------------------*/
+
             if (game_over && delay_counter && death) {
 
                 ui_game_over_screen(&game_options, game_score, best_score, delay_counter, game_level,
-                        death_reason, apples_eaten, game_elapsed_time, game_stats[game_options.difficulty].player_name);
+                        death_reason, apples_eaten, game_elapsed_time,
+                        game_stats[game_options.difficulty].player_name);
                 delay_counter++;
                 if (delay_counter > UI_DELAY * 3) {
                     delay_counter = 1;
@@ -381,6 +402,10 @@ void game_loop() {
                 }
 
             }
+
+            /*-------------------------------------------------------
+             * Settings Screen (Game not in progress)
+             *-------------------------------------------------------*/
 
             if (controller1.current_button_state == SNES_SELECT_MASK) {
                 settings_selection = menu_settings_screen(&controller1);
@@ -401,6 +426,9 @@ void game_loop() {
                     ssd1306_SetCursor(4, 29);
                     ssd1306_WriteString("Adjust Brightness", Font_7x10, White);
                     ssd1306_UpdateScreen();
+
+                    WS2812_clear(&led);
+                    WS2812_send(&led);
 
                     grid_brightness_test(&led, GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
 
@@ -495,7 +523,7 @@ void game_loop() {
 
             if (controller1.current_button_state == SNES_START_MASK || game_reset) {
                 if (!game_reset) {
-                    menu_game_options(&game_options, &controller1);
+                    menu_game_options(&game_options, &controller1, &controller2);
                 }
 
                 generate_wall(field, &game_options);
