@@ -37,7 +37,8 @@ void clear_line(uint8_t width, uint8_t y_pos, FontDef font) {
     ssd1306_WriteString(blank, font, White);
 }
 
-void menu_game_options(game_options_t *options, snes_controller_t *controller) {
+void menu_game_options(game_options_t *options, snes_controller_t *controller1,
+        snes_controller_t *controller2) {
 
     ssd1306_Fill(Black);
     ssd1306_SetCursor(14, 2);
@@ -52,10 +53,10 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
     uint8_t counter = 10;
 
     while (!done) {
-        snes_controller_read(controller);
-        if (controller->current_button_state != controller->previous_button_state
-                && controller->current_button_state) {
-            if (controller->current_button_state & SNES_UP_MASK) {
+        snes_controller_read2(controller1, controller2);
+        if (controller1->current_button_state != controller1->previous_button_state
+                && controller1->current_button_state) {
+            if (controller1->current_button_state & SNES_UP_MASK) {
                 if (option_position > 0) {
                     ssd1306_SetCursor(3, y_pos[option_position]);
                     ssd1306_WriteString(" ", Font_7x10, White);
@@ -66,7 +67,7 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                     counter = 0;
                     blink_state = 1;
                 }
-            } else if (controller->current_button_state & SNES_DOWN_MASK) {
+            } else if (controller1->current_button_state & SNES_DOWN_MASK) {
                 if (options->difficulty == 3 && option_position == 1) {
                     // do nothing
                 } else if (option_position < 2) {
@@ -79,7 +80,7 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                     counter = 0;
                     blink_state = 1;
                 }
-            } else if (controller->current_button_state & SNES_LEFT_MASK) {
+            } else if (controller1->current_button_state & SNES_LEFT_MASK) {
                 if (option_position == 0) {
                     if (options->num_players == 1) {
                         options->num_players = 0;
@@ -100,9 +101,9 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                         option_changed = 1;
                     }
                 }
-            } else if (controller->current_button_state & SNES_RIGHT_MASK) {
+            } else if (controller1->current_button_state & SNES_RIGHT_MASK) {
                 if (option_position == 0) {
-                    if (options->num_players == 0) {
+                    if (options->num_players == 0 && controller2->is_active) {
                         options->num_players = 1;
                         option_changed = 1;
                     }
@@ -121,8 +122,8 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller) {
                         option_changed = 1;
                     }
                 }
-            } else if (controller->current_button_state & SNES_START_MASK
-                    || controller->current_button_state & SNES_A_MASK) {
+            } else if (controller1->current_button_state & SNES_START_MASK
+                    || controller1->current_button_state & SNES_A_MASK) {
                 done = 1;
             }
         }
@@ -277,11 +278,12 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
     cursor_value = sDate->Year + 2000;
 
     // Wait til no buttons are pressed
-    while (!done) {
+    while (done < 2) {
         snes_controller_read(controller);
         if (controller->current_button_state == 0) {
-            done = 1;
+            done++;
         }
+        HAL_Delay(100);
     }
 
     done = 0;
@@ -356,10 +358,18 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
                     cursor_value++;
                     blink_state = 1;
                     counter = 0;
+                } else if (cursor_value == max_value[column_position]) {
+                    cursor_value = min_value[column_position];
+                    blink_state = 1;
+                    counter = 0;
                 }
             } else if (controller->current_button_state & SNES_DOWN_MASK) {
                 if (cursor_value > min_value[column_position]) {
                     cursor_value--;
+                    blink_state = 1;
+                    counter = 0;
+                } else if (cursor_value == min_value[column_position]) {
+                    cursor_value = max_value[column_position];
                     blink_state = 1;
                     counter = 0;
                 }
@@ -368,6 +378,7 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
             } else if (controller->current_button_state & SNES_B_MASK) {
                 value[column_position] = cursor_value;
                 done = 1;
+                break;
             }
         }
 
@@ -426,18 +437,22 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
     sDate->Date = value[2];
     sTime->Hours = value[3];
     sTime->Minutes = value[4];
+    if (value[5] + 7 < 60) {
+        sTime->Seconds = value[5] + 7;
+    } else {
+        sTime->Seconds = 59;
+    }
     sTime->Seconds = value[5];
 
     return 1;
 }
 
 menu_settings_t menu_settings_screen(snes_controller_t *controller) {
-    ssd1306_SetDisplayOn(0);
+
     ssd1306_Fill(Black);
     ssd1306_SetCursor(20, 2);
     ssd1306_WriteString("Settings", Font_11x18, White);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
-    ssd1306_SetDisplayOn(1);
 
     uint8_t done = 0;
     menu_pause_t option_position = 0;
@@ -539,13 +554,13 @@ void menu_player_initials(char *player_initials, uint16_t high_score, snes_contr
         if ((controller->current_button_state != controller->previous_button_state
                 || (controller->current_button_state == controller->previous_button_state))
                 && controller->current_button_state) {
-            if (controller->current_button_state & SNES_UP_MASK) {
+            if (controller->current_button_state & SNES_DOWN_MASK) {
                 if (player_initials[initial_position] < 'Z') {
                     player_initials[initial_position]++;
                     blink_state = 1;
                     counter = 0;
                 }
-            } else if (controller->current_button_state & SNES_DOWN_MASK) {
+            } else if (controller->current_button_state & SNES_UP_MASK) {
                 if (player_initials[initial_position] > 'A') {
                     player_initials[initial_position]--;
                     blink_state = 1;
