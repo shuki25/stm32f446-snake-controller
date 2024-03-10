@@ -36,6 +36,7 @@ RingBuffer controller1_buffer;
 RingBuffer controller2_buffer;
 
 uint8_t update_screen_flag = 0;
+uint8_t scoreboard_i2c_address = 0x00; // Not set
 
 // External variables
 extern RTC_HandleTypeDef hrtc;
@@ -419,6 +420,8 @@ void game_loop() {
                         HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
                         HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
                     }
+                } else if (settings_selection == SCOREBOARD_CONFIG) {
+                    menu_scoreboard_settings(&scoreboard_i2c_address, &controller1);
                 } else if (settings_selection == BRIGHTNESS) {
                     ssd1306_Fill(Black);
                     ssd1306_SetCursor(22, 15);
