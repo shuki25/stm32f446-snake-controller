@@ -40,7 +40,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define RTC_DRIFT_CORRECTION_DIR 1 // 1 for fast, -1 for slow
-#define RTC_DRIFT_NUM_SECONDS 1
+#define RTC_DRIFT_NUM_SECONDS 0.5 // Number of seconds to drift over
 #define RTC_DRIFT_CORRECTION_VALUE (RTC_DRIFT_NUM_SECONDS / 0.0824) // Value to adjust the RTC by to correct for drift
 
 /* USER CODE END PD */
@@ -235,11 +235,17 @@ void SystemClock_Config(void) {
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
     RCC_OscInitStruct.PLL.PLLM = 8;
-    RCC_OscInitStruct.PLL.PLLN = 168;
+    RCC_OscInitStruct.PLL.PLLN = 180;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
     RCC_OscInitStruct.PLL.PLLQ = 7;
     RCC_OscInitStruct.PLL.PLLR = 2;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+        Error_Handler();
+    }
+
+    /** Activate the Over-Drive mode
+     */
+    if (HAL_PWREx_EnableOverDrive() != HAL_OK) {
         Error_Handler();
     }
 
@@ -321,7 +327,8 @@ static void MX_RTC_Init(void) {
     // Set the RTC drift correction
     // If the RTC is too fast, we can use the following to slow it down.
 #if RTC_DRIFT_CORRECTION_DIR == 1
-    HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC, RTC_SMOOTHCALIB_PLUSPULSES_RESET, RTC_DRIFT_CORRECTION_VALUE);
+    HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC, RTC_SMOOTHCALIB_PLUSPULSES_RESET,
+            RTC_DRIFT_CORRECTION_VALUE);
 
 #elif RTC_DRIFT_CORRECTION_DIR == -1
     // If the RTC is too slow, we can use the following to speed it up.
@@ -471,7 +478,7 @@ static void MX_TIM3_Init(void) {
     htim3.Instance = TIM3;
     htim3.Init.Prescaler = 0;
     htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-    htim3.Init.Period = 105 - 1;
+    htim3.Init.Period = 112 - 1;
     htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
     htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
     if (HAL_TIM_Base_Init(&htim3) != HAL_OK) {
@@ -562,7 +569,7 @@ static void MX_TIM13_Init(void) {
 
     /* USER CODE END TIM13_Init 1 */
     htim13.Instance = TIM13;
-    htim13.Init.Prescaler = 8400 - 1;
+    htim13.Init.Prescaler = 9000 - 1;
     htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
     htim13.Init.Period = 410 - 1;
     htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
