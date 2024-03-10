@@ -14,15 +14,15 @@
 #include "bcd_util.h"
 
 // Game options menu
-const char *player_options[2] = { "One Player", "Two Players" };
-const char *level_options[4] = { "Easy", "Medium", "Hard", "Insane" };
-const char *poison_options[2] = { "Poison Off", "Poison On" };
+const char *player_options[] = { "One Player", "Two Players" };
+const char *level_options[] = { "Easy", "Medium", "Hard", "Insane" };
+const char *poison_options[] = { "Poison Off", "Poison On" };
 
 // Pause screen menu
-const char *pause_options[3] = { "Resume", "Restart", "Quit" };
+const char *pause_options[] = { "Resume", "Restart", "Quit" };
 
 // Settings screen menu
-const char *settings_options[3] = { "Brightness", "Clock", "Reset" };
+const char *settings_options[] = { "Brightness", "Clock", "Scoreboard", "Grid Size", "Reset" };
 
 uint8_t center_text(const char *text, FontDef font) {
     uint8_t text_length = strlen(text);
@@ -447,6 +447,18 @@ uint8_t menu_set_clock(RTC_DateTypeDef *sDate, RTC_TimeTypeDef *sTime, snes_cont
     return 1;
 }
 
+void menu_redraw_options(const char *options[], uint8_t offset, uint8_t num_rows, uint8_t y_pos[]) {
+    int j = 0;
+    for (int i = offset; j < num_rows; i++, j++) {
+        ssd1306_SetCursor(10, y_pos[j]);
+        ssd1306_WriteString("               ", Font_7x10, White);
+        uint8_t x_pos = center_text(options[i], Font_7x10);
+        ssd1306_SetCursor(x_pos, y_pos[j]);
+        ssd1306_WriteString((char*) options[i], Font_7x10, White);
+    }
+    ssd1306_UpdateScreen();
+}
+
 menu_settings_t menu_settings_screen(snes_controller_t *controller) {
 
     ssd1306_Fill(Black);
@@ -459,12 +471,18 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
     uint8_t blink_state = 1;
     uint8_t y_pos[3] = { 24, 38, 52 };
     uint8_t counter = 10;
+    uint8_t scroll_size = 3;
+    uint8_t scroll_position = 0;
+    uint8_t scroll_max = NUM_MENU_SETTINGS_OPTIONS - 3;
+    menu_settings_t adj_option_position = 0;
 
-    for (int i = 0; i < NUM_MENU_SETTINGS_OPTIONS; i++) {
-        uint8_t x_pos = center_text(settings_options[i], Font_7x10);
-        ssd1306_SetCursor(x_pos, y_pos[i]);
-        ssd1306_WriteString((char*) settings_options[i], Font_7x10, White);
-    }
+    menu_redraw_options(settings_options, scroll_position, scroll_size, y_pos);
+
+//    for (int i = scroll_position; i < scroll_size; i++) {
+//        uint8_t x_pos = center_text(settings_options[i], Font_7x10);
+//        ssd1306_SetCursor(x_pos, y_pos[i]);
+//        ssd1306_WriteString((char*) settings_options[i], Font_7x10, White);
+//    }
 
     while (!done) {
         snes_controller_read(controller);
@@ -479,6 +497,9 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
                     option_position--;
                     counter = 0;
                     blink_state = 1;
+                } else if (scroll_position > 0) {
+                    scroll_position--;
+                    menu_redraw_options(settings_options, scroll_position, scroll_size, y_pos);
                 }
             } else if (controller->current_button_state & SNES_DOWN_MASK) {
                 if (option_position < 2) {
@@ -489,6 +510,11 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
                     option_position++;
                     counter = 0;
                     blink_state = 1;
+                } else {
+                    if (scroll_position < scroll_max) {
+                        scroll_position++;
+                        menu_redraw_options(settings_options, scroll_position, scroll_size, y_pos);
+                    }
                 }
             } else if (controller->current_button_state & SNES_B_MASK) {
                 done = 1;
@@ -519,7 +545,8 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
         osDelay(BLINK_DELAY);
         counter--;
     }
-    return option_position;
+    adj_option_position = option_position + scroll_position;
+    return adj_option_position;
 }
 
 void menu_player_initials(char *player_initials, uint16_t high_score, snes_controller_t *controller) {

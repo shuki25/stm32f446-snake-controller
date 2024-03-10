@@ -22,7 +22,7 @@ typedef enum {
 } menu_pause_t;
 
 typedef enum {
-    BRIGHTNESS, SET_CLOCK, CLEAR_HIGH_SCORE, NUM_MENU_SETTINGS_OPTIONS
+    BRIGHTNESS, SET_CLOCK, SET_GRID_SIZE, SCOREBOARD_CONFIG, CLEAR_HIGH_SCORE, NUM_MENU_SETTINGS_OPTIONS
 } menu_settings_t;
 
 void menu_game_options(game_options_t *options, snes_controller_t *controller1, snes_controller_t *controller2);
