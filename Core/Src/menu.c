@@ -24,6 +24,9 @@ const char *pause_options[] = { "Resume", "Restart", "Quit" };
 // Settings screen menu
 const char *settings_options[] = { "Brightness", "Clock", "Scoreboard", "Grid Size", "Reset" };
 
+// Grid Size menu
+const char *grid_size_options[] = { "16x16", "32x16", "32x32" };
+
 uint8_t center_text(const char *text, FontDef font) {
     uint8_t text_length = strlen(text);
     return (uint8_t) ((128 - (text_length * font.FontWidth)) >> 1);
@@ -519,7 +522,7 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
             } else if (controller->current_button_state & SNES_B_MASK) {
                 done = 1;
             } else if (controller->current_button_state & SNES_Y_MASK) {
-                option_position = 3;
+                option_position = NUM_MENU_SETTINGS_OPTIONS;
                 done = 1;
             }
         }
@@ -564,7 +567,7 @@ void menu_player_initials(char *player_initials, uint16_t high_score, snes_contr
     ssd1306_WriteString("AAA", Font_7x10, White);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
     ssd1306_SetCursor(36, 53);
-    ssd1306_WriteString("A = Save", Font_7x10, White);
+    ssd1306_WriteString("B = Save", Font_7x10, White);
     ssd1306_UpdateScreen();
 
     memset(player_initials, 0, 4);
@@ -574,7 +577,16 @@ void menu_player_initials(char *player_initials, uint16_t high_score, snes_contr
     uint8_t initial_position = 0;
     uint8_t blink_state = 1;
     uint8_t counter = 3;
+    uint8_t done = 0;
 
+    // Wait til no buttons are pressed
+    while (done < 2) {
+        snes_controller_read(controller);
+        if (controller->current_button_state == 0) {
+            done++;
+        }
+        HAL_Delay(100);
+    }
     while (!is_done) {
         snes_controller_read(controller);
 
@@ -586,10 +598,18 @@ void menu_player_initials(char *player_initials, uint16_t high_score, snes_contr
                     player_initials[initial_position]++;
                     blink_state = 1;
                     counter = 0;
+                } else {
+                    player_initials[initial_position] = 'A';
+                    blink_state = 1;
+                    counter = 0;
                 }
             } else if (controller->current_button_state & SNES_UP_MASK) {
                 if (player_initials[initial_position] > 'A') {
                     player_initials[initial_position]--;
+                    blink_state = 1;
+                    counter = 0;
+                } else {
+                    player_initials[initial_position] = 'Z';
                     blink_state = 1;
                     counter = 0;
                 }
@@ -692,3 +712,90 @@ void menu_scoreboard_settings(uint8_t *i2c_addr, snes_controller_t *controller) 
     }
 }
 
+void menu_grid_size_options(grid_size_options_t *grid_size, snes_controller_t *controller) {
+
+    ssd1306_Fill(Black);
+    ssd1306_SetCursor(14, 2);
+    ssd1306_WriteString("Grid Size", Font_11x18, White);
+    ssd1306_DrawRectangle(0, 0, 127, 63, White);
+
+    uint8_t done = 0;
+    uint8_t y_pos = 35;
+    uint8_t blink_state = 1;
+    uint8_t counter = 10;
+    grid_size_options_t current_grid_size = *grid_size;
+    uint8_t option_changed = 1;
+
+    while (!done) {
+        if (option_changed) {
+            uint8_t x_pos = center_text(grid_size_options[current_grid_size], Font_7x10);
+            ssd1306_SetCursor(x_pos, y_pos);
+            ssd1306_WriteString((char*) grid_size_options[current_grid_size], Font_7x10, White);
+            option_changed = 0;
+        }
+
+        snes_controller_read(controller);
+        if (controller->current_button_state != controller->previous_button_state
+                && controller->current_button_state) {
+            if (controller->current_button_state & SNES_LEFT_MASK) {
+                if (current_grid_size > 0) {
+                    ssd1306_SetCursor(3, y_pos);
+                    ssd1306_WriteString(" ", Font_7x10, White);
+                    ssd1306_SetCursor(117, y_pos);
+                    ssd1306_WriteString(" ", Font_7x10, White);
+                    current_grid_size--;
+                    counter = 0;
+                    blink_state = 1;
+                    option_changed = 1;
+                }
+            } else if (controller->current_button_state & SNES_RIGHT_MASK) {
+                if (current_grid_size < NUM_GRID_SIZE_OPTIONS - 1) {
+                    ssd1306_SetCursor(3, y_pos);
+                    ssd1306_WriteString(" ", Font_7x10, White);
+                    ssd1306_SetCursor(117, y_pos);
+                    ssd1306_WriteString(" ", Font_7x10, White);
+                    current_grid_size++;
+                    counter = 0;
+                    blink_state = 1;
+                    option_changed = 1;
+                }
+            } else if (controller->current_button_state & SNES_Y_MASK) {
+                return;
+            } else if (controller->current_button_state & SNES_B_MASK) {
+                *grid_size = current_grid_size;
+                ssd1306_SetCursor(3, y_pos);
+                ssd1306_WriteString(" ", Font_7x10, White);
+                ssd1306_SetCursor(117, y_pos);
+                ssd1306_WriteString(" ", Font_7x10, White);
+                ssd1306_SetCursor(4, y_pos);
+                ssd1306_WriteString("                 ", Font_7x10, White);
+                ssd1306_SetCursor(4, 27);
+                ssd1306_WriteString("Grid Size Updated", Font_7x10, White);
+                ssd1306_SetCursor(11, 42);
+                ssd1306_WriteString("Reboot Required", Font_7x10, White);
+                ssd1306_UpdateScreen();
+                return;
+            }
+        }
+
+        if (blink_state && !counter) {
+            ssd1306_SetCursor(3, y_pos);
+            ssd1306_WriteString(">", Font_7x10, White);
+            ssd1306_SetCursor(117, y_pos);
+            ssd1306_WriteString("<", Font_7x10, White);
+            blink_state = 0;
+            counter = 10;
+            ssd1306_UpdateScreen();
+        } else if (!blink_state && !counter) {
+            ssd1306_SetCursor(3, y_pos);
+            ssd1306_WriteString(" ", Font_7x10, White);
+            ssd1306_SetCursor(117, y_pos);
+            ssd1306_WriteString(" ", Font_7x10, White);
+            blink_state = 1;
+            counter = 10;
+            ssd1306_UpdateScreen();
+        }
+        osDelay(BLINK_DELAY);
+        counter--;
+    }
+}

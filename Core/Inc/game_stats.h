@@ -11,7 +11,7 @@
 #include <stdint.h>
 #include "snake.h"
 #include "cmsis_os.h"
-
+#include "menu.h"
 
 /*
  * Data structure for storing game statistics
@@ -36,6 +36,12 @@
  * reinitialized and the data will be reset to initial values.
  *
  */
+
+typedef struct saved_settings {
+    grid_size_options_t grid_size;
+    uint8_t scoreboard_i2c_address;
+    uint8_t brightness;
+} saved_settings_t;
 
 typedef struct game_stats {
     options_difficulty_t difficulty;

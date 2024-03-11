@@ -37,6 +37,7 @@ RingBuffer controller2_buffer;
 
 uint8_t update_screen_flag = 0;
 uint8_t scoreboard_i2c_address = 0x00; // Not set
+grid_size_options_t grid_size = GRID_SIZE_32X16;
 
 // External variables
 extern RTC_HandleTypeDef hrtc;
@@ -106,6 +107,7 @@ void game_loop() {
     size_t game_stats_size = sizeof(game_stats_t);
     size_t global_stats_size = sizeof(global_stats_t);
     uint8_t game_stats_updated = 0;
+    saved_settings_t saved_settings;
 
     RTC_TimeTypeDef sTime;
     RTC_DateTypeDef sDate;
@@ -113,52 +115,11 @@ void game_loop() {
 
     uint8_t oled_buffer[20];
 
-    /* Generate and initialize the grid lookup table */
-    grid_lookup = generate_lookup_grid(GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT, GRID_WIDTH,
-    GRID_HEIGHT);
-
-    /* Generate and initialize the brightness lookup table */
-    brightness_lookup = generate_brightness_lookup_table(4);
-
-    /* Initialize the LED grid */
-
-    led_error = WS2812_init(&led, &htim3, TIM_CHANNEL_1, htim3.Init.Period, board_size, 0);
-    if (led_error != WS2812_OK) {
-        Error_Handler();
-    }
-
-    led.data_sent_flag = 1;
-
-    WS2812_fill(&led, 0, 0, 32);
-//    WS2812_set_brightness(&led, 5);
-    WS2812_send(&led);
-
-    osDelay(500);
-
-    WS2812_clear(&led);
-//    WS2812_set_brightness(&led, led.brightness);
-    WS2812_send(&led);
-
-    osDelay(10);
-
-    // Grid test
-
-//    grid_test(&led, 32, 16);
-
-    // Initialize the ring buffer for controllers
-    if (ring_buffer_init(&controller1_buffer, RING_BUFFER_SIZE, sizeof(controller_direction_t))
-            == RING_BUFFER_MALLOC_FAILED) {
-        Error_Handler();
-    }
-    if (ring_buffer_init(&controller2_buffer, RING_BUFFER_SIZE, sizeof(controller_direction_t))
-            == RING_BUFFER_MALLOC_FAILED) {
-        Error_Handler();
-    }
-
     // Initialize EEPROM for saving high score and game options
 
     memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
     memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
+    memset(&saved_settings, 0, sizeof(saved_settings_t));
 
     for (int i = 0; i < NUM_DIFFICULTIES; i++) {
         game_stats[i].difficulty = i;
@@ -182,6 +143,10 @@ void game_loop() {
         global_stats[i].total_time_played = 0;
     }
 
+    saved_settings.grid_size = GRID_SIZE_32X16;
+    saved_settings.scoreboard_i2c_address = 0x10;
+    saved_settings.brightness = 5;
+
     HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
     bcd_rtc_to_bcd_time(&sTime, &sDate, &current_datetime);
@@ -191,10 +156,13 @@ void game_loop() {
         // Verify EEPROM signature
         eeprom_status = eeprom_get_signature(&eeprom, &eeprom_signature);
         if (eeprom_status == EEPROM_OK) {
-            eeprom_status = eeprom_verify_signature(&eeprom_signature, NUM_DIFFICULTIES);
+            eeprom_status = eeprom_verify_signature(&eeprom_signature, NUM_DIFFICULTIES * 2 + 1);
             if (eeprom_status == EEPROM_OK) {
                 memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
                 memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
+                memset(&saved_settings, 0, sizeof(saved_settings_t));
+
+                eeprom_status = eeprom_get_settings(&eeprom, &saved_settings);
                 for (int i = 0; i < NUM_DIFFICULTIES; i++) {
                     eeprom_status = eeprom_read(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
                             (uint16_t) game_stats_size);
@@ -212,17 +180,23 @@ void game_loop() {
                 // Bad signature, write new signature and initial game stats
                 // If it is on the first run, the signature will return as bad.
             } else if (eeprom_status == EEPROM_SIGNATURE_MISMATCH) {
-                eeprom_generate_signature(&eeprom_signature, NUM_DIFFICULTIES);
+                eeprom_generate_signature(&eeprom_signature, NUM_DIFFICULTIES * 2 + 1);
                 eeprom_status = eeprom_write_signature(&eeprom, &eeprom_signature);
                 if (eeprom_status != EEPROM_OK) {
                     Error_Handler();
                 }
+                eeprom_status = eeprom_write_settings(&eeprom, &saved_settings);
+                if (eeprom_status != EEPROM_OK) {
+                    Error_Handler();
+                }
+
                 if (eeprom.write_protected == 1) {
                     eeprom_status = eeprom_write_protect(&eeprom, 0);
                     if (eeprom_status != EEPROM_OK) {
                         Error_Handler();
                     }
                 }
+
                 for (int i = 0; i < NUM_DIFFICULTIES; i++) {
                     eeprom_status = eeprom_write(&eeprom, EEPROM_START_PAGE + i, 0, (uint8_t*) &game_stats[i],
                             (uint16_t) game_stats_size);
@@ -254,12 +228,67 @@ void game_loop() {
         Error_Handler();
     }
 
+    /*-------------------------------------------------------
+     * Update the saved settings to current settings
+     *-------------------------------------------------------*/
+    grid_size = saved_settings.grid_size;
+    scoreboard_i2c_address = saved_settings.scoreboard_i2c_address;
+
+    /* Generate and initialize the grid lookup table */
+    uint8_t grid_width = (grid_size == GRID_SIZE_16X16) ? 16 : 32;
+    uint8_t grid_height = (grid_size == GRID_SIZE_32X32) ? 32 : 16;
+    uint8_t panel_width = (grid_size == GRID_SIZE_16X16) ? 1 : 2;
+    uint8_t panel_height = (grid_size == GRID_SIZE_32X32) ? 2 : 1;
+    board_size = grid_width * grid_height;
+
+    grid_lookup = generate_lookup_grid(grid_width, grid_height, panel_width, panel_height);
+
+    /* Generate and initialize the brightness lookup table */
+    brightness_lookup = generate_brightness_lookup_table(saved_settings.brightness);
+
+    /* Initialize the LED grid */
+
+    led_error = WS2812_init(&led, &htim3, TIM_CHANNEL_1, htim3.Init.Period, board_size, 0);
+    if (led_error != WS2812_OK) {
+        Error_Handler();
+    }
+
+    // Initialize the led object
+    led.brightness = saved_settings.brightness;
+    led.data_sent_flag = 1;
+
+    WS2812_fill(&led, 0, 0, 32);
+//    WS2812_set_brightness(&led, 5);
+    WS2812_send(&led);
+
+    osDelay(500);
+
+    WS2812_clear(&led);
+//    WS2812_set_brightness(&led, led.brightness);
+    WS2812_send(&led);
+
+    osDelay(10);
+
+    // Grid test
+
+//    grid_test(&led, 32, 16);
+
+    // Initialize the ring buffer for controllers
+    if (ring_buffer_init(&controller1_buffer, RING_BUFFER_SIZE, sizeof(controller_direction_t))
+            == RING_BUFFER_MALLOC_FAILED) {
+        Error_Handler();
+    }
+    if (ring_buffer_init(&controller2_buffer, RING_BUFFER_SIZE, sizeof(controller_direction_t))
+            == RING_BUFFER_MALLOC_FAILED) {
+        Error_Handler();
+    }
+
     game_start_time = __HAL_TIM_GET_COUNTER(&htim2);
 
     controller1.previous_button_state = 0xffff;
     controller2.previous_button_state = 0xffff;
 
-    field = snake_field_init(GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
+    field = snake_field_init(grid_width, grid_height);
     if (field == NULL) {
         Error_Handler();
     }
@@ -408,7 +437,7 @@ void game_loop() {
              * Settings Screen (Game not in progress)
              *-------------------------------------------------------*/
 
-            if (controller1.current_button_state == SNES_SELECT_MASK) {
+            if (controller1.current_button_state == (SNES_SELECT_MASK + SNES_R_MASK + SNES_L_MASK)) {
                 settings_selection = menu_settings_screen(&controller1);
 
                 if (settings_selection == SET_CLOCK) {
@@ -422,18 +451,36 @@ void game_loop() {
                     }
                 } else if (settings_selection == SCOREBOARD_CONFIG) {
                     menu_scoreboard_settings(&scoreboard_i2c_address, &controller1);
+                    saved_settings.scoreboard_i2c_address = scoreboard_i2c_address;
+                    if (eeprom_write_settings(&eeprom, &saved_settings) != EEPROM_OK) {
+                        Error_Handler();
+                    }
+                } else if (settings_selection == SET_GRID_SIZE) {
+                    grid_size_options_t prev_grid_size_option = grid_size;
+                    menu_grid_size_options(&grid_size, &controller1);
+                    if (prev_grid_size_option != grid_size) {
+                        saved_settings.grid_size = grid_size;
+                        if (eeprom_write_settings(&eeprom, &saved_settings) != EEPROM_OK) {
+                            Error_Handler();
+                        }
+                        while (1)
+                            ; // Force reset
+                    }
                 } else if (settings_selection == BRIGHTNESS) {
                     ssd1306_Fill(Black);
                     ssd1306_SetCursor(22, 15);
                     ssd1306_WriteString("Press L/R to", Font_7x10, White);
                     ssd1306_SetCursor(4, 29);
                     ssd1306_WriteString("Adjust Brightness", Font_7x10, White);
+                    ssd1306_SetCursor(57, 48);
+                    sprintf((char*) oled_buffer, "%02d", led.brightness);
+                    ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
                     ssd1306_UpdateScreen();
 
                     WS2812_clear(&led);
                     WS2812_send(&led);
 
-                    grid_brightness_test(&led, GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
+                    grid_brightness_test(&led, grid_width, grid_height);
 
                     is_done = 0;
                     while (!is_done) {
@@ -457,7 +504,7 @@ void game_loop() {
                             }
                             destroy_brightness_lookup_table(brightness_lookup);
                             brightness_lookup = generate_brightness_lookup_table(led.brightness);
-                            grid_brightness_test(&led, GRID_SIZE * GRID_WIDTH, GRID_SIZE * GRID_HEIGHT);
+                            grid_brightness_test(&led, grid_width, grid_height);
                             ssd1306_SetCursor(57, 48);
                             sprintf((char*) oled_buffer, "%02d", led.brightness);
                             ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
@@ -467,11 +514,15 @@ void game_loop() {
                             is_done = 1;
                             WS2812_clear(&led);
                             WS2812_send(&led);
+                            if (controller1.current_button_state == SNES_B_MASK) {
+                                saved_settings.brightness = led.brightness;
+                                if (eeprom_write_settings(&eeprom, &saved_settings) != EEPROM_OK) {
+                                    Error_Handler();
+                                }
+                            }
                         }
                         osDelay(100);
                     }
-
-                    // TODO: Implement brightness control for WS2812 LEDs
                 } else if (settings_selection == CLEAR_HIGH_SCORE) {
                     ssd1306_Fill(Black);
                     ssd1306_SetCursor(8, 3);
@@ -482,9 +533,20 @@ void game_loop() {
                     ssd1306_WriteString("Y = Cancel", Font_7x10, White);
                     ssd1306_UpdateScreen();
 
+                    // Wait til no buttons are pressed
+                    uint8_t done = 0;
+                    while (done < 2) {
+                        snes_controller_read(&controller1);
+                        if (controller1.current_button_state == 0) {
+                            done++;
+                        }
+                        HAL_Delay(100);
+                    }
+
                     while (controller1.current_button_state != SNES_B_MASK
                             && controller1.current_button_state != SNES_Y_MASK) {
                         snes_controller_read(&controller1);
+                        osDelay(10);
                     }
 
                     if (controller1.current_button_state == SNES_B_MASK) {
@@ -492,6 +554,10 @@ void game_loop() {
                         ssd1306_SetCursor(22, 27);
                         ssd1306_WriteString("Resetting...", Font_7x10, White);
                         ssd1306_UpdateScreen();
+
+                        memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
+                        memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
+
                         eeprom_status = eeprom_write_protect(&eeprom, 0);
                         if (eeprom_status != EEPROM_OK) {
                             Error_Handler();
