@@ -122,17 +122,22 @@ void grid_test(led_t *led_obj, uint8_t width, uint8_t height) {
 void grid_brightness_test(led_t *led_obj, uint8_t width, uint8_t height) {
 
     uint16_t num_leds = width * height;
-    uint8_t part_size = num_leds / 4;
+    uint16_t part_size = num_leds / 4;
     uint8_t color_increment = 255 / part_size;
+    if (color_increment < 1) {
+        color_increment = 1;
+    }
     uint8_t color_group = 0;
     uint8_t counter = 0;
+    uint16_t part_counter = 0;
 
     WS2812_clear(led_obj);
 
     for (int y = 0; y < height; y++) {
-        if (counter == part_size) {
+        if (part_counter >= part_size) {
             color_group++;
             counter = 0;
+            part_counter = 0;
         }
         for (int x = 0; x < width; x++) {
 
@@ -147,6 +152,10 @@ void grid_brightness_test(led_t *led_obj, uint8_t width, uint8_t height) {
                 WS2812_set_LED(led_obj, led_pos, counter, counter, counter);
             }
             counter += color_increment;
+            if (counter > 255) {
+                counter = 255;
+            }
+            part_counter++;
         }
     }
     WS2812_send(led_obj);

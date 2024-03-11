@@ -35,6 +35,17 @@ snake_field_t* snake_field_init(uint8_t width, uint8_t height) {
 	return field;
 }
 
+// Destroy the playing field
+
+snake_status_t snake_field_destroy(snake_field_t *field) {
+    snake_destroy(field->snake1);
+    snake_destroy(field->snake2);
+    poison_food_destroy(field);
+    destroy_wall(field);
+    vPortFree(field);
+    return SNAKE_OK;
+}
+
 // Function to handle snake position and movement
 
 snake_t* snake_init(uint8_t x, uint8_t y) {

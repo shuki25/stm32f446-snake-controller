@@ -27,8 +27,8 @@ uint8_t* generate_brightness_lookup_table(uint8_t brightness) {
     if (table == NULL) {
         return NULL;
     }
-     if (brightness > 45)
-            brightness = 45;
+    if (brightness > 45)
+        brightness = 45;
     for (int i = 0; i < 256; i++) {
         float angle = 90 - brightness;
         angle = angle * PI / 180;
@@ -86,6 +86,16 @@ WS2812_error_t WS2812_init(led_t *led_obj, TIM_HandleTypeDef *htim, const uint32
     if (led_obj->pwm_data == NULL) {
         return WS2812_MALLOC_FAILED;
     }
+    return WS2812_OK;
+}
+
+WS2812_error_t WS2812_destroy(led_t *led_obj) {
+    uint16_t adj_num_leds = led_obj->num_leds + (led_obj->sacrificial_led_flag * NUM_SACRIFICIAL_LED);
+    for (int i = 0; i < adj_num_leds; i++) {
+        vPortFree(led_obj->data[i]);
+    }
+    vPortFree(led_obj->data);
+    vPortFree(led_obj->pwm_data);
     return WS2812_OK;
 }
 

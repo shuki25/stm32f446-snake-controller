@@ -54,6 +54,7 @@ void destroy_brightness_lookup_table(uint8_t *table);
 
 WS2812_error_t WS2812_init(led_t *led_obj, TIM_HandleTypeDef *htim, const uint32_t channel,
         const uint8_t counter_period, const uint16_t num_leds, uint8_t sacrificial_led_flag);
+WS2812_error_t WS2812_destroy(led_t *led_obj);
 WS2812_error_t WS2812_set_LED(led_t *led_obj, uint16_t LEDnum, uint8_t Red, uint8_t Green, uint8_t Blue);
 WS2812_error_t WS2812_set_LED_color(led_t *led_obj, uint16_t LEDnum, uint8_t color);
 //void WS2812_set_brightness(led_t *led_obj, uint8_t brightness);

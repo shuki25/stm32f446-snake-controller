@@ -113,6 +113,7 @@ typedef struct {
 } game_options_t;
 
 snake_field_t* snake_field_init(uint8_t width, uint8_t height);
+snake_status_t snake_field_destroy(snake_field_t *field);
 snake_t *snake_init(uint8_t x, uint8_t y);
 snake_status_t snake_enqueue(snake_t *snake, uint8_t x, uint8_t y);
 snake_status_t snake_dequeue(snake_t *snake);
