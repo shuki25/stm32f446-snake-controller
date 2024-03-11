@@ -16,6 +16,7 @@ extern "C" {
 #include "main.h"
 #include "stm32f4xx_hal_gpio.h"
 #include <stdint.h>
+#include "game_stats.h"
 
 #define EEPROM_ADDRESS 0xA0
 #define EEPROM_IDENTIFICATION 0xB0
@@ -24,11 +25,13 @@ extern "C" {
 
 
 #define EEPROM_SIGNATURE "SNAKEBIT"
-#define EEPROM_VERSION 2
-#define EEPROM_REVISION 0
+#define EEPROM_VERSION 3
+#define EEPROM_REVISION 2
 #define EEPROM_SIGNATURE_PAGE 0
 #define EEPROM_SIGNATURE_OFFSET 0
-#define EEPROM_START_PAGE 1
+#define EEPROM_SETTINGS_PAGE 1
+#define EEPROM_SETTINGS_OFFSET 0
+#define EEPROM_START_PAGE 2
 
 typedef enum {
     EEPROM_OK = 0,
@@ -62,6 +65,8 @@ void eeprom_generate_signature(eeprom_id_t *signature, uint8_t num_pages);
 eeprom_status_t eeprom_get_signature(eeprom_t *eeprom, eeprom_id_t *signature);
 eeprom_status_t eeprom_write_signature(eeprom_t *eeprom, eeprom_id_t *signature);
 eeprom_status_t eeprom_verify_signature(eeprom_id_t *signature, uint8_t num_pages);
+eeprom_status_t eeprom_write_settings(eeprom_t *eeprom, saved_settings_t *settings);
+eeprom_status_t eeprom_get_settings(eeprom_t *eeprom, saved_settings_t *settings);
 #ifdef __cplusplus
 }
 #endif
