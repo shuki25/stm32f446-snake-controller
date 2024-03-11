@@ -328,7 +328,7 @@ static void MX_RTC_Init(void) {
     // If the RTC is too fast, we can use the following to slow it down.
 #if RTC_DRIFT_CORRECTION_DIR == 1
     HAL_RTCEx_SetSmoothCalib(&hrtc, RTC_SMOOTHCALIB_PERIOD_32SEC, RTC_SMOOTHCALIB_PLUSPULSES_RESET,
-            RTC_DRIFT_CORRECTION_VALUE);
+    RTC_DRIFT_CORRECTION_VALUE);
 
 #elif RTC_DRIFT_CORRECTION_DIR == -1
     // If the RTC is too slow, we can use the following to speed it up.
