@@ -30,6 +30,12 @@
 #define GAME_SPEED        (0b11111100) // Between 0 and 60
 #define GAME_SPEED_SHIFT  (2)
 
+// Bit Definitions for the current_game_state3
+#define GAME_CAUSE_OF_DEATH    (0b00001111) // snake_status_t
+#define GAME_CAUSE_OF_DEATH_SHIFT (0)
+#define GAME_GRID_SIZE         (0b00110000) // 0 = 16x16, 1 = 32x16, 2 = 32x32
+#define GAME_GRID_SIZE_SHIFT   (4)
+
 // 32-Bit Definitions for the date/time
 // 31    26   22    17    12     6      0
 // +------+----+-----+-----+------+------+
@@ -52,25 +58,26 @@ typedef struct {                    // Register Map
     uint8_t console_info;           // 0x00
     uint8_t current_game_state;     // 0x01
     uint8_t current_game_state2;    // 0x02
-    uint16_t current_score1;        // 0x03
-    uint16_t current_score2;        // 0x05
-    uint16_t number_apples1;        // 0x07
-    uint16_t number_apples2;        // 0x09
-    uint16_t high_score;            // 0x0B
-    uint16_t playing_time;          // 0x0D
-    uint16_t num_apples_easy;       // 0x0F
-    uint16_t num_apples_medium;     // 0x11
-    uint16_t num_apples_hard;       // 0x13
-    uint16_t num_apples_insane;     // 0x15
-    uint16_t high_score_easy;       // 0x17
-    uint16_t high_score_medium;     // 0x19
-    uint16_t high_score_hard;       // 0x1B
-    uint16_t high_score_insane;     // 0x1D
-    char initials_easy[3];          // 0x1F
-    char initials_medium[3];        // 0x22
-    char initials_hard[3];          // 0x25
-    char initials_insane[3];        // 0x28
-    uint32_t date_time;             // 0x2B
+    uint8_t current_game_state3;    // 0x03
+    uint16_t current_score1;        // 0x04
+    uint16_t current_score2;        // 0x06
+    uint16_t number_apples1;        // 0x08
+    uint16_t number_apples2;        // 0x0A
+    uint16_t high_score;            // 0x0C
+    uint16_t playing_time;          // 0x0E
+    uint16_t num_apples_easy;       // 0x10
+    uint16_t num_apples_medium;     // 0x12
+    uint16_t num_apples_hard;       // 0x14
+    uint16_t num_apples_insane;     // 0x16
+    uint16_t high_score_easy;       // 0x18
+    uint16_t high_score_medium;     // 0x1A
+    uint16_t high_score_hard;       // 0x1C
+    uint16_t high_score_insane;     // 0x1E
+    char initials_easy[3];          // 0x20
+    char initials_medium[3];        // 0x23
+    char initials_hard[3];          // 0x26
+    char initials_insane[3];        // 0x29
+    uint32_t date_time;             // 0x2C
 } scoreboard_t;
 
 #endif /* INC_SCOREBOARD_H_ */

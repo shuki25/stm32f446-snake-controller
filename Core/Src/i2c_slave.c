@@ -9,6 +9,7 @@
 #include "i2c_slave.h"
 #include "scoreboard.h"
 #include <string.h>
+#include "led_indicator.h"
 
 volatile uint8_t i2c_rx_buffer[I2C_BUFFER_SIZE];
 volatile uint8_t i2c_rx_index = 0;
@@ -20,19 +21,20 @@ volatile uint8_t i2c_register[REGISTERS_SIZE] = { 0 };
 
 extern I2C_HandleTypeDef hi2c2;
 extern RTC_HandleTypeDef hrtc;
+extern led_indicator_t scoreboard_led;
 
-const uint8_t register_size[] = { sizeof(i2c_register_struct.console_info),
-        sizeof(i2c_register_struct.current_game_state), sizeof(i2c_register_struct.current_game_state2),
-        sizeof(i2c_register_struct.current_score1), 0, sizeof(i2c_register_struct.current_score2), 0,
-        sizeof(i2c_register_struct.number_apples1), 0, sizeof(i2c_register_struct.number_apples2), 0,
-        sizeof(i2c_register_struct.high_score), 0, sizeof(i2c_register_struct.playing_time), 0,
-        sizeof(i2c_register_struct.num_apples_easy), 0, sizeof(i2c_register_struct.num_apples_medium), 0,
-        sizeof(i2c_register_struct.num_apples_hard), 0, sizeof(i2c_register_struct.num_apples_insane), 0,
-        sizeof(i2c_register_struct.high_score_easy), 0, sizeof(i2c_register_struct.high_score_medium), 0,
-        sizeof(i2c_register_struct.high_score_hard), 0, sizeof(i2c_register_struct.high_score_insane), 0,
-        sizeof(i2c_register_struct.initials_easy), 0, 0, sizeof(i2c_register_struct.initials_medium), 0, 0,
-        sizeof(i2c_register_struct.initials_hard), 0, 0, sizeof(i2c_register_struct.initials_insane), 0, 0,
-        sizeof(i2c_register_struct.date_time), 0, 0, 0, 0 };
+//const uint8_t register_size[] = { sizeof(i2c_register_struct.console_info),
+//        sizeof(i2c_register_struct.current_game_state), sizeof(i2c_register_struct.current_game_state2),
+//        sizeof(i2c_register_struct.current_score1), 0, sizeof(i2c_register_struct.current_score2), 0,
+//        sizeof(i2c_register_struct.number_apples1), 0, sizeof(i2c_register_struct.number_apples2), 0,
+//        sizeof(i2c_register_struct.high_score), 0, sizeof(i2c_register_struct.playing_time), 0,
+//        sizeof(i2c_register_struct.num_apples_easy), 0, sizeof(i2c_register_struct.num_apples_medium), 0,
+//        sizeof(i2c_register_struct.num_apples_hard), 0, sizeof(i2c_register_struct.num_apples_insane), 0,
+//        sizeof(i2c_register_struct.high_score_easy), 0, sizeof(i2c_register_struct.high_score_medium), 0,
+//        sizeof(i2c_register_struct.high_score_hard), 0, sizeof(i2c_register_struct.high_score_insane), 0,
+//        sizeof(i2c_register_struct.initials_easy), 0, 0, sizeof(i2c_register_struct.initials_medium), 0, 0,
+//        sizeof(i2c_register_struct.initials_hard), 0, 0, sizeof(i2c_register_struct.initials_insane), 0, 0,
+//        sizeof(i2c_register_struct.date_time), 0, 0, 0, 0 };
 
 void volatile_memcpy(volatile void *dest, void *src, size_t n) {
     for (size_t i = 0; i < n; i++) {
@@ -50,6 +52,7 @@ void initialize_register() {
     i2c_register_struct.console_info = 0;
     i2c_register_struct.current_game_state = 0;
     i2c_register_struct.current_game_state2 = 0;
+    i2c_register_struct.current_game_state3 = 0;
     i2c_register_struct.current_score1 = 0;
     i2c_register_struct.current_score2 = 0;
     i2c_register_struct.number_apples1 = 0;
@@ -77,6 +80,7 @@ void struct2register() {
     i2c_register[i++] = i2c_register_struct.console_info;
     i2c_register[i++] = i2c_register_struct.current_game_state;
     i2c_register[i++] = i2c_register_struct.current_game_state2;
+    i2c_register[i++] = i2c_register_struct.current_game_state3;
     i2c_register[i++] = (uint8_t) (i2c_register_struct.current_score1 >> 8) & 0xFF;
     i2c_register[i++] = (uint8_t) i2c_register_struct.current_score1 & 0xFF;
     i2c_register[i++] = (uint8_t) (i2c_register_struct.current_score2 >> 8) & 0xFF;
@@ -126,7 +130,7 @@ void struct2register() {
 void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16_t best_score,
         uint16_t number_apples[], uint8_t level, uint8_t game_in_progress, uint8_t game_pause,
         uint8_t game_over, uint8_t game_pace, uint8_t clock_sync_flag, uint32_t game_elapsed_time,
-        game_options_t *game_options) {
+        game_options_t *game_options, grid_size_options_t grid_size_options) {
 
     RTC_TimeTypeDef sTime;
     RTC_DateTypeDef sDate;
@@ -134,7 +138,8 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
     HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
     uint8_t console_id = ((I2C2->OAR1 & 0x7E) >> 1) - 15;
-    i2c_register_struct.console_info = console_id | CONSOLE_SIGNATURE | (clock_sync_flag << CONSOLE_CLOCK_SHIFT)
+    i2c_register_struct.console_info = console_id | CONSOLE_SIGNATURE
+            | (clock_sync_flag << CONSOLE_CLOCK_SHIFT)
             | (((uint8_t) game_options->difficulty & 0x0F) << GAME_LEVEL_MODE_SHIFT);
 
     uint8_t game_progress = 0;
@@ -149,6 +154,8 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
     i2c_register_struct.current_game_state = (game_progress & 0x03) | (level << GAME_PLAYING_LEVEL_SHIFT);
     i2c_register_struct.current_game_state2 = (uint8_t) game_options->num_players
             | (game_pace << GAME_SPEED_SHIFT) | ((uint8_t) game_options->poison << GAME_POISON_SHIFT);
+    i2c_register_struct.current_game_state3 = (game_over & GAME_CAUSE_OF_DEATH)
+            | ((grid_size_options << GAME_GRID_SIZE_SHIFT) & GAME_GRID_SIZE);
     i2c_register_struct.current_score1 = current_score[0];
     i2c_register_struct.current_score2 = current_score[1];
     i2c_register_struct.number_apples1 = number_apples[0];
@@ -196,7 +203,8 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
         start_position = i2c_rx_buffer[0];
         i2c_rx_buffer[0] = 0;
         i2c_tx_index = 0;
-        HAL_I2C_Slave_Seq_Transmit_IT(hi2c,(uint8_t *)&i2c_register + start_position, 1, I2C_FIRST_FRAME);
+        led_indicator_set_blink(&scoreboard_led, 40, 6);
+        HAL_I2C_Slave_Seq_Transmit_IT(hi2c, (uint8_t*) &i2c_register + start_position, 1, I2C_FIRST_FRAME);
     } else if (TransferDirection == I2C_DIRECTION_TRANSMIT) { // Master transmitting to slave
         i2c_rx_index = 0;
         volatile_memset((uint8_t*) i2c_rx_buffer, 0, I2C_BUFFER_SIZE);
@@ -223,7 +231,8 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c) {
 
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c) {
     i2c_tx_index++;
-    HAL_I2C_Slave_Seq_Transmit_IT(hi2c, (uint8_t *)&i2c_register + start_position + i2c_tx_index, 1, I2C_NEXT_FRAME);
+    HAL_I2C_Slave_Seq_Transmit_IT(hi2c, (uint8_t*) &i2c_register + start_position + i2c_tx_index, 1,
+            I2C_NEXT_FRAME);
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {

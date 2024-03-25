@@ -23,6 +23,7 @@
 #include "eeprom.h"
 #include "game_stats.h"
 #include "bcd_util.h"
+#include "i2c_slave.h"
 
 // Global variables
 
@@ -43,6 +44,7 @@ grid_size_options_t grid_size = GRID_SIZE_32X16;
 extern RTC_HandleTypeDef hrtc;
 
 extern I2C_HandleTypeDef hi2c1;
+extern I2C_HandleTypeDef hi2c2;
 extern SPI_HandleTypeDef hspi1;
 
 extern TIM_HandleTypeDef htim1;
@@ -114,6 +116,9 @@ void game_loop() {
     bcd_time_t current_datetime;
 
     uint8_t oled_buffer[20];
+
+    // Initialize i2c slave registers
+    initialize_register();
 
     // Initialize EEPROM for saving high score and game options
 
@@ -295,8 +300,24 @@ void game_loop() {
 
     ssd1306_Fill(Black);
 
+    // Start listening to i2c2
+    // Clear OAR1 address
+    scoreboard_i2c_address = saved_settings.scoreboard_i2c_address;
+    HAL_I2C_DeInit(&hi2c2);
+    hi2c2.Init.OwnAddress1 = scoreboard_i2c_address << 1;
+    if (HAL_I2C_Init(&hi2c2) != HAL_OK) {
+        Error_Handler();
+    }
+
+    HAL_I2C_EnableListen_IT(&hi2c2);
+
     /* Infinite loop */
     for (;;) {
+        /*-------------------------------------------------------
+         * Update i2c2 registers with game stats
+         *-------------------------------------------------------*/
+        update_register(game_stats, game_score, best_score, apples_eaten, game_level, game_in_progress,
+                game_pause, game_over, game_pace, 0, game_elapsed_time, &game_options, saved_settings.grid_size);
 
         /*-------------------------------------------------------
          * Game is not in progress, awaiting user input
@@ -455,6 +476,12 @@ void game_loop() {
                     if (eeprom_write_settings(&eeprom, &saved_settings) != EEPROM_OK) {
                         Error_Handler();
                     }
+                    HAL_I2C_DeInit(&hi2c2);
+                    hi2c2.Init.OwnAddress1 = scoreboard_i2c_address << 1;
+                    if (HAL_I2C_Init(&hi2c2) != HAL_OK) {
+                        Error_Handler();
+                    }
+                    HAL_I2C_EnableListen_IT(&hi2c2);
                 } else if (settings_selection == SET_GRID_SIZE) {
                     grid_size_options_t prev_grid_size_option = grid_size;
                     menu_grid_size_options(&grid_size, &controller1);
@@ -590,6 +617,9 @@ void game_loop() {
                 draw_home_screen();
             }
 
+            /*-------------------------------------------------------
+             * Start Game (Game not in progress)
+             *-------------------------------------------------------*/
             if (controller1.current_button_state == SNES_START_MASK || game_reset) {
                 if (!game_reset) {
                     menu_game_options(&game_options, &controller1, &controller2);
@@ -720,6 +750,9 @@ void game_loop() {
             osDelay(10);
         }
 
+        /*-------------------------------------------------------
+         * Game in progress
+         *-------------------------------------------------------*/
         if (game_in_progress && game_pause) {
 
             ssd1306_Init();

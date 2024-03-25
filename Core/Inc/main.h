@@ -73,10 +73,17 @@ void Error_Handler(void);
 #define OLED_CS_GPIO_Port GPIOB
 #define OLED_DC_Pin GPIO_PIN_2
 #define OLED_DC_GPIO_Port GPIOB
+#define I2C_LED_Pin GPIO_PIN_12
+#define I2C_LED_GPIO_Port GPIOB
 #define SNES_LATCH_Pin GPIO_PIN_13
 #define SNES_LATCH_GPIO_Port GPIOB
 #define SNES_CLOCK_Pin GPIO_PIN_14
 #define SNES_CLOCK_GPIO_Port GPIOB
+#define SB_EN_Pin GPIO_PIN_15
+#define SB_EN_GPIO_Port GPIOB
+#define SB_LINK_Pin GPIO_PIN_6
+#define SB_LINK_GPIO_Port GPIOC
+#define SB_LINK_EXTI_IRQn EXTI9_5_IRQn
 #define SNES_DATA0_Pin GPIO_PIN_7
 #define SNES_DATA0_GPIO_Port GPIOC
 #define LED_SNES0_Pin GPIO_PIN_8
@@ -86,10 +93,10 @@ void Error_Handler(void);
 #define USB_OTG_OC_Pin GPIO_PIN_10
 #define USB_OTG_OC_GPIO_Port GPIOA
 #define USB_OTG_OC_EXTI_IRQn EXTI15_10_IRQn
-#define LED_HB_Pin GPIO_PIN_12
-#define LED_HB_GPIO_Port GPIOC
 #define EEPROM_Pin GPIO_PIN_4
 #define EEPROM_GPIO_Port GPIOB
+#define LED_HB_Pin GPIO_PIN_5
+#define LED_HB_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 #define VERSION_MAJOR 0

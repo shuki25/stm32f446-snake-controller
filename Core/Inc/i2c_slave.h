@@ -13,7 +13,7 @@
 
 #define I2C_SLAVE_START_ADDR (0x10)
 #define I2C_BUFFER_SIZE (0x3F)
-#define REGISTERS_SIZE (0x2F)
+#define REGISTERS_SIZE (0x30)
 
 
 
@@ -48,6 +48,6 @@ void initialize_register();
 void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16_t best_score,
         uint16_t number_apples[], uint8_t level, uint8_t game_in_progress, uint8_t game_pause,
         uint8_t game_over, uint8_t game_pace, uint8_t clock_sync_flag, uint32_t game_elapsed_time,
-        game_options_t *game_options);
+        game_options_t *game_options, grid_size_options_t grid_size_options);
 
 #endif /* INC_I2C_SLAVE_H_ */
