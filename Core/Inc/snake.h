@@ -85,7 +85,7 @@ typedef enum {
 } snake_game_mode_t;
 
 typedef enum {
-	NO_COLLISION, SNAKE_BODY_COLLISION, FOOD_COLLISION, POISON_FOOD_COLLISION, WALL_COLLISION
+	NO_COLLISION, SNAKE_BODY_COLLISION, FOOD_COLLISION, POISON_FOOD_COLLISION, WALL_COLLISION, SNAKE_SELF_COLLISION
 } snake_collision_t;
 
 typedef struct controller_direction_t {

@@ -128,12 +128,13 @@ void struct2register() {
 }
 
 void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16_t best_score,
-        uint16_t number_apples[], uint8_t level, uint8_t game_in_progress, uint8_t game_pause,
-        uint8_t game_over, uint8_t game_pace, uint8_t clock_sync_flag, uint32_t game_elapsed_time,
-        game_options_t *game_options, grid_size_options_t grid_size_options) {
+        uint16_t number_apples[], uint8_t level, snake_status_t death_cause, uint8_t game_in_progress,
+        uint8_t game_pause, uint8_t game_over, uint8_t game_pace, uint8_t clock_sync_flag,
+        uint32_t game_elapsed_time, game_options_t *game_options, grid_size_options_t grid_size_options) {
 
     RTC_TimeTypeDef sTime;
     RTC_DateTypeDef sDate;
+    snake_collision_t death_cause_collision = 0;
 
     HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
     HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
@@ -143,18 +144,35 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
             | (((uint8_t) game_options->difficulty & 0x0F) << GAME_LEVEL_MODE_SHIFT);
 
     uint8_t game_progress = 0;
-    if (game_in_progress) {
-        game_progress = 1;
-    } else if (game_pause) {
+     if (game_pause) {
         game_progress = 2;
     } else if (game_over) {
         game_progress = 3;
+    } else if (game_in_progress) {
+        game_progress = 1;
+    }
+
+    switch(death_cause) {
+        case SNAKE_DEATH_BY_WALL:
+            death_cause_collision = WALL_COLLISION;
+            break;
+        case SNAKE_DEATH_BY_BODY:
+            death_cause_collision = SNAKE_BODY_COLLISION;
+            break;
+        case SNAKE_DEATH_BY_POISON:
+            death_cause_collision = POISON_FOOD_COLLISION;
+            break;
+        case SNAKE_DEATH_BY_SELF:
+            death_cause_collision = SNAKE_SELF_COLLISION;
+            break;
+        default:
+            break;
     }
 
     i2c_register_struct.current_game_state = (game_progress & 0x03) | (level << GAME_PLAYING_LEVEL_SHIFT);
     i2c_register_struct.current_game_state2 = (uint8_t) game_options->num_players
             | (game_pace << GAME_SPEED_SHIFT) | ((uint8_t) game_options->poison << GAME_POISON_SHIFT);
-    i2c_register_struct.current_game_state3 = (game_over & GAME_CAUSE_OF_DEATH)
+    i2c_register_struct.current_game_state3 = ((uint8_t) death_cause_collision & GAME_CAUSE_OF_DEATH)
             | ((grid_size_options << GAME_GRID_SIZE_SHIFT) & GAME_GRID_SIZE);
     i2c_register_struct.current_score1 = current_score[0];
     i2c_register_struct.current_score2 = current_score[1];
@@ -232,7 +250,7 @@ void HAL_I2C_SlaveRxCpltCallback(I2C_HandleTypeDef *hi2c) {
 void HAL_I2C_SlaveTxCpltCallback(I2C_HandleTypeDef *hi2c) {
     i2c_tx_index++;
     HAL_I2C_Slave_Seq_Transmit_IT(hi2c, (uint8_t*) &i2c_register + start_position + i2c_tx_index, 1,
-            I2C_NEXT_FRAME);
+    I2C_NEXT_FRAME);
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c) {

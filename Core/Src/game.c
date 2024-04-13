@@ -84,7 +84,7 @@ void game_loop() {
 
     snake_status_t status = SNAKE_OK;
     snake_status_t status2 = SNAKE_OK;
-    snake_status_t death_reason = SNAKE_DEATH_BY_WALL;
+    snake_status_t death_reason = SNAKE_OK;
     snake_field_t *field;
 //  snake_food_t food = { 0, 0 };
     snake_direction_t dir = SNAKE_NO_CHANGE;
@@ -316,7 +316,7 @@ void game_loop() {
         /*-------------------------------------------------------
          * Update i2c2 registers with game stats
          *-------------------------------------------------------*/
-        update_register(game_stats, game_score, best_score, apples_eaten, game_level, game_in_progress,
+        update_register(game_stats, game_score, best_score, apples_eaten, game_level, death_reason, game_in_progress,
                 game_pause, game_over, game_pace, 0, game_elapsed_time, &game_options, saved_settings.grid_size);
 
         /*-------------------------------------------------------
@@ -640,6 +640,7 @@ void game_loop() {
                 death = 0;
                 game_pause = 0;
                 game_reset = 0;
+                death_reason = SNAKE_OK;
 
                 best_score = game_stats[game_options.difficulty].high_score;
                 field->num_poisons_spawned = 0;
