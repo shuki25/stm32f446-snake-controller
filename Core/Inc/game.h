@@ -23,6 +23,12 @@
 #define EEPROM_DATE_PAGE 0
 #define EEPROM_DATE_OFFSET 0
 
+typedef struct {
+    uint32_t command;
+    uint8_t is_remote_start;
+    uint8_t is_prepare_start;
+} remote_command_t;
+
 void game_loop();
 
 

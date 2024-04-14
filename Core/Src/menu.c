@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include "cmsis_os.h"
 #include "bcd_util.h"
+#include "i2c_slave.h"
 
 // Game options menu
 const char *player_options[] = { "One Player", "Two Players" };
@@ -56,7 +57,12 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller1,
     uint8_t counter = 10;
 
     while (!done) {
-        snes_controller_read2(controller1, controller2);
+        if (get_register_command()) { // Check for remote override
+            return;
+        }
+        snes_controller_read2(controller1, controller2); {
+
+        }
         if (controller1->current_button_state != controller1->previous_button_state
                 && controller1->current_button_state) {
             if (controller1->current_button_state & SNES_UP_MASK) {
@@ -192,6 +198,9 @@ menu_pause_t menu_pause_screen(snes_controller_t *controller) {
     }
 
     while (!done) {
+        if (get_register_command()) {  // Check for remote override
+            return QUIT;
+        }
         snes_controller_read(controller);
         if (controller->current_button_state != controller->previous_button_state
                 && controller->current_button_state) {

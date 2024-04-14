@@ -118,6 +118,7 @@ void game_loop() {
 
     uint8_t oled_buffer[20];
     uint32_t scoreboard_command = 0;
+    remote_command_t remote_command;
 
     // Initialize i2c slave registers
     initialize_register();
@@ -127,6 +128,7 @@ void game_loop() {
     memset(&game_stats, 0, sizeof(game_stats_t) * NUM_DIFFICULTIES);
     memset(&global_stats, 0, sizeof(global_stats_t) * NUM_DIFFICULTIES);
     memset(&saved_settings, 0, sizeof(saved_settings_t));
+    memset(&remote_command, 0, sizeof(remote_command_t));
 
     for (int i = 0; i < NUM_DIFFICULTIES; i++) {
         game_stats[i].difficulty = i;
@@ -264,6 +266,19 @@ void game_loop() {
     led.brightness = saved_settings.brightness;
     led.data_sent_flag = 1;
 
+    grid_draw_font(&led, grid_width, grid_height, "S", 1, BLUE);
+    osDelay(500);
+    grid_draw_font(&led, grid_width, grid_height, "N", 1, RED);
+    osDelay(500);
+    grid_draw_font(&led, grid_width, grid_height, "A", 1, GREEN);
+    osDelay(500);
+    grid_draw_font(&led, grid_width, grid_height, "K", 1, YELLOW);
+    osDelay(500);
+    grid_draw_font(&led, grid_width, grid_height, "E", 1, MAGENTA);
+    osDelay(500);
+
+    grid_countdown(&led, grid_width, grid_height, 3, 1000);
+
     WS2812_fill(&led, 0, 0, 32);
 //    WS2812_set_brightness(&led, 5);
     WS2812_send(&led);
@@ -316,13 +331,12 @@ void game_loop() {
     /* Infinite loop */
     for (;;) {
         /*-------------------------------------------------------
-         * Check for remote command from scoreboard
+         * Check for remote command from the scoreboard controller
          *-------------------------------------------------------*/
         scoreboard_command = get_register_command();
         uint32_t mask_cmd = scoreboard_command & I2C_CMD_MASK;
         if (scoreboard_command) {
-            if ((mask_cmd == I2C_CMD_PREPARE_GAME || mask_cmd == I2C_CMD_END_GAME)
-                    && game_in_progress) {
+            if ((mask_cmd == I2C_CMD_PREPARE_GAME || mask_cmd == I2C_CMD_END_GAME) && game_in_progress) {
                 status = poison_food_destroy(field);
                 if (status != SNAKE_OK) {
                     Error_Handler();
@@ -345,7 +359,7 @@ void game_loop() {
                     field->snake1 = NULL;
                     field->snake2 = NULL;
                 }
-                game_over = 1;
+                game_over = 0;
                 death = 0;
                 game_in_progress = 0;
 
@@ -356,12 +370,31 @@ void game_loop() {
                 }
             }
             if (mask_cmd == I2C_CMD_PREPARE_GAME) {
-                WS2812_fill(&led, 20, 0, 0);
+                WS2812_fill(&led, 50, 0, 0);
                 WS2812_send(&led);
                 ui_prepare_game_screen();
+                game_over = 0;
+                death = 0;
+                game_in_progress = 0;
+                remote_command.command = scoreboard_command;
+                remote_command.is_prepare_start = 1;
+                game_options.num_players = ONE_PLAYER;
+                game_options.difficulty = scoreboard_command & 0x000000FF;
+                if (game_options.difficulty > 3) {
+                    game_options.difficulty = 3;
+                }
+                if (game_options.difficulty == 3) {
+                    game_options.poison = 1;
+                } else {
+                    game_options.poison = (scoreboard_command & 0x0000FF00) >> 8;
+                }
             }
             if (mask_cmd == I2C_CMD_SET_SPEED) {
                 game_pace = scoreboard_command & 0x000000FF;
+            }
+            if (mask_cmd == I2C_CMD_START_GAME && remote_command.is_prepare_start) {
+                remote_command.command = scoreboard_command;
+                remote_command.is_remote_start = 1;
             }
 
             clear_register_command();
@@ -379,7 +412,9 @@ void game_loop() {
          *-------------------------------------------------------*/
 
         if (!game_in_progress) {
-            snes_controller_read2(&controller1, &controller2);
+            if (!remote_command.is_prepare_start) {
+                snes_controller_read2(&controller1, &controller2);
+            }
             if (!game_over) {
 
 //                if (controller1.current_button_state != controller1.previous_button_state) {
@@ -675,133 +710,142 @@ void game_loop() {
             /*-------------------------------------------------------
              * Start Game (Game not in progress)
              *-------------------------------------------------------*/
-            if (controller1.current_button_state == SNES_START_MASK || game_reset) {
-                if (!game_reset) {
+            if (controller1.current_button_state == SNES_START_MASK || game_reset
+                    || remote_command.is_remote_start) {
+                if (!game_reset && !remote_command.is_remote_start) {
                     menu_game_options(&game_options, &controller1, &controller2);
                 }
+                if (!get_register_command()) {
 
-                generate_wall(field, &game_options);
-                game_in_progress = 1;
+                    generate_wall(field, &game_options);
+                    game_in_progress = 1;
 
-                // Set up common game variables
-                game_score[0] = 0;
-                game_score[1] = 0;
-                delay_counter = 0;
-                level_up_interval = 5;
-                level_up_counter = 0;
-                game_level = 1;
-                apples_eaten[0] = 0;
-                apples_eaten[1] = 0;
-                death = 0;
-                game_pause = 0;
-                game_reset = 0;
-                death_reason = SNAKE_OK;
+                    // Set up common game variables
+                    game_score[0] = 0;
+                    game_score[1] = 0;
+                    delay_counter = 0;
+                    level_up_interval = 5;
+                    level_up_counter = 0;
+                    game_level = 1;
+                    apples_eaten[0] = 0;
+                    apples_eaten[1] = 0;
+                    death = 0;
+                    game_pause = 0;
+                    game_reset = 0;
+                    death_reason = SNAKE_OK;
 
-                best_score = game_stats[game_options.difficulty].high_score;
-                field->num_poisons_spawned = 0;
-                field->poison_spawn_cooldown = 5;
+                    best_score = game_stats[game_options.difficulty].high_score;
+                    field->num_poisons_spawned = 0;
+                    field->poison_spawn_cooldown = 5;
 
-                uint8_t start_x = field->width >> 1;
-                uint8_t start_y = field->height >> 1;
+                    uint8_t start_x = field->width >> 1;
+                    uint8_t start_y = field->height >> 1;
 
-                if (game_options.difficulty == EASY) {
-                    field->max_poisons = game_options.poison ? 3 : 0;
-                    field->poison_cooldown_base = 20;
-                    game_pace = MAX_GAME_PACE;
-                } else if (game_options.difficulty == MEDIUM) {
-                    field->max_poisons = game_options.poison ? 5 : 0;
-                    field->poison_cooldown_base = 15;
-                    start_y = field->height - 3;
-                    game_pace = MAX_GAME_PACE - GAME_PACE_STEP;
-                } else if (game_options.difficulty == HARD) {
-                    field->max_poisons = game_options.poison ? 7 : 0;
-                    field->poison_cooldown_base = 10;
-                    start_y = field->height - 3;
-                    game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 2);
-                } else if (game_options.difficulty == INSANE) {
-                    field->max_poisons = game_options.poison ? 9 : 0;
-                    field->poison_cooldown_base = 5;
-                    start_y = field->height - 3;
-                    game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 4);
+                    if (game_options.difficulty == EASY) {
+                        field->max_poisons = game_options.poison ? 3 : 0;
+                        field->poison_cooldown_base = 20;
+                        game_pace = MAX_GAME_PACE;
+                    } else if (game_options.difficulty == MEDIUM) {
+                        field->max_poisons = game_options.poison ? 5 : 0;
+                        field->poison_cooldown_base = 15;
+                        start_y = field->height - 3;
+                        game_pace = MAX_GAME_PACE - GAME_PACE_STEP;
+                    } else if (game_options.difficulty == HARD) {
+                        field->max_poisons = game_options.poison ? 7 : 0;
+                        field->poison_cooldown_base = 10;
+                        start_y = field->height - 3;
+                        game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 2);
+                    } else if (game_options.difficulty == INSANE) {
+                        field->max_poisons = game_options.poison ? 9 : 0;
+                        field->poison_cooldown_base = 5;
+                        start_y = field->height - 3;
+                        game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 4);
+                    }
+                    if (remote_command.is_remote_start && (remote_command.command & 0xFF)) {
+                        game_pace = remote_command.command & 0x000000FF;
+                    }
+                    // Set Up One Player Game Mode
+                    if (game_options.num_players == ONE_PLAYER) {
+                        field->snake1 = snake_init(start_x, start_y);
+                        if (field->snake1 == NULL) {
+                            Error_Handler();
+                        }
+                        field->snake1->direction = SNAKE_UP;
+
+                        status = snake_enqueue(field->snake1, start_x, start_y - 1);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        status = snake_enqueue(field->snake1, start_x, start_y - 2);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+                        status = spawn_food(field);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        // Set Up Two Player Game Mode
+                    } else if (game_options.num_players == TWO_PLAYERS) {
+
+                        field->snake1 = snake_init(start_x - 4, start_y);
+                        if (field->snake1 == NULL) {
+                            Error_Handler();
+                        }
+                        field->snake1->direction = SNAKE_UP;
+                        field->snake1->color = GREEN;
+
+                        field->snake2 = snake_init(start_x + 4, start_y);
+                        if (field->snake2 == NULL) {
+                            Error_Handler();
+                        }
+                        field->snake2->direction = SNAKE_UP;
+                        field->snake2->color = BLUE;
+
+                        status = snake_enqueue(field->snake1, start_x - 4, start_y - 1);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        status = snake_enqueue(field->snake2, start_x + 4, start_y - 1);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        status = snake_enqueue(field->snake1, start_x - 4, start_y - 2);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        status = snake_enqueue(field->snake2, start_x + 4, start_y - 2);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+
+                        status = spawn_food(field);
+                        if (status != SNAKE_OK) {
+                            Error_Handler();
+                        }
+                    }
+
+                    // Draw OLED screen
+                    ssd1306_Reset();
+                    osDelay(10);
+                    ssd1306_Init();
+                    ssd1306_Fill(Black);
+
+                    if (game_options.num_players == ONE_PLAYER)
+                        ui_one_player(game_score[0], best_score, game_level);
+                    else if (game_options.num_players == TWO_PLAYERS)
+                        ui_two_player(game_score[0], game_score[1], game_level);
+
+                    memset(&remote_command, 0, sizeof(remote_command_t));
+                    grid_countdown(&led, grid_width, grid_height, 3, 1000);
+                    refresh_grid(&led, field, &game_options);
+                    osDelay(500);
+                    game_start_time = __HAL_TIM_GET_COUNTER(&htim2);
                 }
-
-                // Set Up One Player Game Mode
-                if (game_options.num_players == ONE_PLAYER) {
-                    field->snake1 = snake_init(start_x, start_y);
-                    if (field->snake1 == NULL) {
-                        Error_Handler();
-                    }
-                    field->snake1->direction = SNAKE_UP;
-
-                    status = snake_enqueue(field->snake1, start_x, start_y - 1);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    status = snake_enqueue(field->snake1, start_x, start_y - 2);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-                    status = spawn_food(field);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    // Set Up Two Player Game Mode
-                } else if (game_options.num_players == TWO_PLAYERS) {
-
-                    field->snake1 = snake_init(start_x - 4, start_y);
-                    if (field->snake1 == NULL) {
-                        Error_Handler();
-                    }
-                    field->snake1->direction = SNAKE_UP;
-                    field->snake1->color = GREEN;
-
-                    field->snake2 = snake_init(start_x + 4, start_y);
-                    if (field->snake2 == NULL) {
-                        Error_Handler();
-                    }
-                    field->snake2->direction = SNAKE_UP;
-                    field->snake2->color = BLUE;
-
-                    status = snake_enqueue(field->snake1, start_x - 4, start_y - 1);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    status = snake_enqueue(field->snake2, start_x + 4, start_y - 1);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    status = snake_enqueue(field->snake1, start_x - 4, start_y - 2);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    status = snake_enqueue(field->snake2, start_x + 4, start_y - 2);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-
-                    status = spawn_food(field);
-                    if (status != SNAKE_OK) {
-                        Error_Handler();
-                    }
-                }
-
-                // Draw OLED screen
-                ssd1306_Reset();
-                osDelay(10);
-                ssd1306_Init();
-                ssd1306_Fill(Black);
-
-                if (game_options.num_players == ONE_PLAYER)
-                    ui_one_player(game_score[0], best_score, game_level);
-                else if (game_options.num_players == TWO_PLAYERS)
-                    ui_two_player(game_score[0], game_score[1], game_level);
-
-                game_start_time = __HAL_TIM_GET_COUNTER(&htim2);
             }
             osDelay(10);
         }
@@ -811,7 +855,6 @@ void game_loop() {
          *-------------------------------------------------------*/
         if (game_in_progress && game_pause) {
 
-            ssd1306_Init();
             ssd1306_Fill(Black);
 
             pause_selection = menu_pause_screen(&controller1);
