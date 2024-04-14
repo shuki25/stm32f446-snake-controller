@@ -59,5 +59,8 @@ void draw_food(led_t *led_obj, snake_food_t *food);
 void refresh_grid(led_t *led_obj, snake_field_t *field, game_options_t *options);
 void grid_test(led_t *led_obj, uint8_t width, uint8_t height);
 void grid_brightness_test(led_t *led_obj, uint8_t width, uint8_t height);
+void grid_draw_font(led_t *led_obj, uint8_t width, uint8_t height, const char *text, uint8_t clear_grid,
+        uint8_t color);
+void grid_countdown(led_t *led_obj, uint8_t width, uint8_t height, uint8_t n, uint16_t delay_ms);
 
 #endif /* INC_LED_GRID_H_ */
