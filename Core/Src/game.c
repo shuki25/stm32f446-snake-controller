@@ -73,7 +73,7 @@ void game_loop() {
     uint8_t game_level = 1;
     uint16_t apples_eaten[2] = { 0, 0 };
     uint8_t update_screen = 0;
-    uint8_t display_contrast = 20;
+//    uint8_t display_contrast = 20;
     uint8_t level_up_interval = 5;
     uint8_t level_up_counter = 0;
     uint8_t order_of_play = 0;
@@ -391,10 +391,12 @@ void game_loop() {
             }
             if (mask_cmd == I2C_CMD_SET_SPEED) {
                 game_pace = scoreboard_command & 0x000000FF;
+                game_options.can_change_speed = 0;
             }
             if (mask_cmd == I2C_CMD_START_GAME && remote_command.is_prepare_start) {
                 remote_command.command = scoreboard_command;
                 remote_command.is_remote_start = 1;
+                game_options.can_change_speed = 0;
             }
 
             clear_register_command();
@@ -714,6 +716,7 @@ void game_loop() {
                     || remote_command.is_remote_start) {
                 if (!game_reset && !remote_command.is_remote_start) {
                     menu_game_options(&game_options, &controller1, &controller2);
+                    game_options.can_change_speed = 1;
                 }
                 if (!get_register_command()) {
 
@@ -763,6 +766,9 @@ void game_loop() {
                     }
                     if (remote_command.is_remote_start && (remote_command.command & 0xFF)) {
                         game_pace = remote_command.command & 0x000000FF;
+                        game_options.can_change_speed = 0;
+                    } else {
+                        game_options.can_change_speed = 1;
                     }
                     // Set Up One Player Game Mode
                     if (game_options.num_players == ONE_PLAYER) {
@@ -922,33 +928,34 @@ void game_loop() {
                     game_pause = !game_pause;
                 } else if (controller1.current_button_state & SNES_SELECT_MASK) {
                     game_reset = 1;
-                } else if (controller1.current_button_state & SNES_R_MASK) {
+                } else if (controller1.current_button_state & SNES_R_MASK && game_options.can_change_speed) {
                     delay_counter = 0;
                     game_pace -= GAME_PACE_STEP;
                     if (game_pace <= GAME_PACE_STEP) {
                         game_pace = GAME_PACE_STEP;
                     }
                     update_screen = 1;
-                } else if (controller1.current_button_state & SNES_L_MASK) {
+                } else if (controller1.current_button_state & SNES_L_MASK && game_options.can_change_speed) {
                     delay_counter = 0;
                     game_pace += GAME_PACE_STEP;
                     if (game_pace >= MAX_GAME_PACE) {
                         game_pace = MAX_GAME_PACE;
                     }
                     update_screen = 1;
-                } else if (controller1.current_button_state & SNES_A_MASK) {
-                    display_contrast -= 5;
-                    if (display_contrast == 0) {
-                        display_contrast = 5;
-                    }
-                    ssd1306_SetContrast(display_contrast);
-                } else if (controller1.current_button_state & SNES_X_MASK) {
-                    display_contrast += 5;
-                    if (display_contrast >= 250) {
-                        display_contrast = 255;
-                    }
-                    ssd1306_SetContrast(display_contrast);
                 }
+//                } else if (controller1.current_button_state & SNES_A_MASK) {
+//                    display_contrast -= 5;
+//                    if (display_contrast == 0) {
+//                        display_contrast = 5;
+//                    }
+//                    ssd1306_SetContrast(display_contrast);
+//                } else if (controller1.current_button_state & SNES_X_MASK) {
+//                    display_contrast += 5;
+//                    if (display_contrast >= 250) {
+//                        display_contrast = 255;
+//                    }
+//                    ssd1306_SetContrast(display_contrast);
+//                }
             }
             if (controller2.current_button_state != controller2.previous_button_state
                     && controller2.current_button_state) {

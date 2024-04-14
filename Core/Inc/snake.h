@@ -110,6 +110,7 @@ typedef struct {
 	options_difficulty_t difficulty;
 	options_poison_t poison;
 	uint8_t num_poisons;
+	uint8_t can_change_speed;
 } game_options_t;
 
 snake_field_t* snake_field_init(uint8_t width, uint8_t height);
