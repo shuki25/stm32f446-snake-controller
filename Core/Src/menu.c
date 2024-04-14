@@ -60,9 +60,7 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller1,
         if (get_register_command()) { // Check for remote override
             return;
         }
-        snes_controller_read2(controller1, controller2); {
-
-        }
+        snes_controller_read2(controller1, controller2);
         if (controller1->current_button_state != controller1->previous_button_state
                 && controller1->current_button_state) {
             if (controller1->current_button_state & SNES_UP_MASK) {
@@ -132,7 +130,8 @@ void menu_game_options(game_options_t *options, snes_controller_t *controller1,
                     }
                 }
             } else if (controller1->current_button_state & SNES_START_MASK
-                    || controller1->current_button_state & SNES_B_MASK) {
+                    || controller1->current_button_state & SNES_B_MASK
+                    || controller1->current_button_state & SNES_A_MASK) {
                 done = 1;
             }
         }
@@ -204,6 +203,10 @@ menu_pause_t menu_pause_screen(snes_controller_t *controller) {
         snes_controller_read(controller);
         if (controller->current_button_state != controller->previous_button_state
                 && controller->current_button_state) {
+            if (controller->current_button_state & SNES_X_MASK
+                    || controller->current_button_state & SNES_Y_MASK) {
+                return RESUME;
+            }
             if (controller->current_button_state & SNES_UP_MASK) {
                 if (option_position > 0) {
                     ssd1306_SetCursor(3, y_pos[option_position]);
@@ -224,8 +227,10 @@ menu_pause_t menu_pause_screen(snes_controller_t *controller) {
                     counter = 0;
                     blink_state = 1;
                 }
-            } else if (controller->current_button_state & SNES_B_MASK) {
+            } else if (controller->current_button_state & SNES_B_MASK
+                    || controller->current_button_state & SNES_A_MASK) {
                 done = 1;
+
             }
         }
 
@@ -528,9 +533,12 @@ menu_settings_t menu_settings_screen(snes_controller_t *controller) {
                         menu_redraw_options(settings_options, scroll_position, scroll_size, y_pos);
                     }
                 }
-            } else if (controller->current_button_state & SNES_B_MASK) {
+            } else if (controller->current_button_state & SNES_B_MASK
+                    || controller->current_button_state & SNES_A_MASK) {
                 done = 1;
-            } else if (controller->current_button_state & SNES_Y_MASK) {
+                done = 1;
+            } else if (controller->current_button_state & SNES_Y_MASK
+                    || controller->current_button_state & SNES_X_MASK) {
                 option_position = NUM_MENU_SETTINGS_OPTIONS;
                 done = 1;
             }
@@ -573,14 +581,14 @@ void menu_player_initials(char *player_initials, uint16_t high_score, snes_contr
     sprintf(buffer, "%04d", high_score);
     ssd1306_WriteString(buffer, Font_11x18, White);
     ssd1306_SetCursor(53, 40);
-    ssd1306_WriteString("AAA", Font_7x10, White);
+    ssd1306_WriteString("___", Font_7x10, White);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
     ssd1306_SetCursor(36, 53);
     ssd1306_WriteString("B = Save", Font_7x10, White);
     ssd1306_UpdateScreen();
 
     memset(player_initials, 0, 4);
-    memset(player_initials, 'A', 3);
+    memset(player_initials, '_', 3);
 
     uint8_t is_done = 0;
     uint8_t initial_position = 0;

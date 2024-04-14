@@ -193,7 +193,8 @@ void grid_draw_border(led_t *led_obj, uint8_t width, uint8_t height, uint8_t col
  * Returns: None
  *----------------------------------------------------------------------------*/
 
-void grid_draw_font(led_t *led_obj, uint8_t width, uint8_t height, const char *text, uint8_t clear_grid, uint8_t color) {
+void grid_draw_font(led_t *led_obj, uint8_t width, uint8_t height, const char *text, uint8_t clear_grid,
+        uint8_t color) {
 
     // Draw a string of text on the LED grid (4 characters max)
     uint8_t x = 0;
@@ -207,7 +208,7 @@ void grid_draw_font(led_t *led_obj, uint8_t width, uint8_t height, const char *t
     }
 
     // Center the text on the LED grid
-    x = (width - (len * 7)) / 2;
+    x = ((width - (len * 7)) / 2) + 1;
 
     if (clear_grid) {
         WS2812_clear(led_obj);
@@ -233,15 +234,10 @@ void grid_draw_font(led_t *led_obj, uint8_t width, uint8_t height, const char *t
 
 void grid_countdown(led_t *led_obj, uint8_t width, uint8_t height, uint8_t n, uint16_t delay_ms) {
     char countdown[2];
-    uint8_t first = 1;
+
     for (int i = n; i > 0; i--) {
         countdown[0] = i + '0';
         countdown[1] = '\0';
-        if (first) {
-            WS2812_clear(led_obj);
-            grid_draw_border(led_obj, width, height, WHITE);
-            first = 0;
-        }
         grid_draw_font(led_obj, width, height, countdown, 0, GREEN);
         osDelay(delay_ms);
     }

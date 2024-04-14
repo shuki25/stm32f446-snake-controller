@@ -119,6 +119,7 @@ void game_loop() {
     uint8_t oled_buffer[20];
     uint32_t scoreboard_command = 0;
     remote_command_t remote_command;
+    uint8_t end_game_counter = 0;
 
     // Initialize i2c slave registers
     initialize_register();
@@ -277,7 +278,7 @@ void game_loop() {
     grid_draw_font(&led, grid_width, grid_height, "E", 1, MAGENTA);
     osDelay(500);
 
-    grid_countdown(&led, grid_width, grid_height, 3, 1000);
+    // grid_countdown(&led, grid_width, grid_height, 3, 1000);
 
     WS2812_fill(&led, 0, 0, 32);
 //    WS2812_set_brightness(&led, 5);
@@ -367,6 +368,7 @@ void game_loop() {
                     WS2812_fill(&led, 20, 0, 0);
                     WS2812_send(&led);
                     ui_forced_end_game_screen();
+                    end_game_counter = 50;
                 }
             }
             if (mask_cmd == I2C_CMD_PREPARE_GAME) {
@@ -533,7 +535,8 @@ void game_loop() {
                     delay_counter = 1;
                 }
 
-                if (controller1.current_button_state == SNES_B_MASK) {
+                if (controller1.current_button_state == SNES_B_MASK
+                        || controller1.current_button_state == SNES_A_MASK) {
                     game_over = 0;
                     game_reset = 0;
                     game_pause = 0;
@@ -544,6 +547,24 @@ void game_loop() {
                     WS2812_send(&led);
                 }
 
+            }
+
+            /*-------------------------------------------------------
+             * Forced End Game over screen (Game not in progress)
+             *-------------------------------------------------------*/
+            if (end_game_counter) {
+                end_game_counter--;
+                if (end_game_counter == 0) {
+                    game_over = 0;
+                    game_reset = 0;
+                    game_pause = 0;
+                    game_in_progress = 0;
+                    death = 0;
+                    draw_home_screen();
+                    WS2812_clear(&led);
+                    WS2812_send(&led);
+                }
+                osDelay(100);
             }
 
             /*-------------------------------------------------------
@@ -745,24 +766,27 @@ void game_loop() {
                     uint8_t start_y = field->height >> 1;
 
                     if (game_options.difficulty == EASY) {
-                        field->max_poisons = game_options.poison ? 3 : 0;
-                        field->poison_cooldown_base = 20;
-                        game_pace = MAX_GAME_PACE;
-                    } else if (game_options.difficulty == MEDIUM) {
                         field->max_poisons = game_options.poison ? 5 : 0;
+                        field->poison_cooldown_base = 20;
+                        game_pace = MAX_GAME_PACE; // With 3 ms delay per cycle
+                    } else if (game_options.difficulty == MEDIUM) {
+                        field->max_poisons = game_options.poison ? 7 : 0;
                         field->poison_cooldown_base = 15;
                         start_y = field->height - 3;
-                        game_pace = MAX_GAME_PACE - GAME_PACE_STEP;
+                        game_pace = MAX_GAME_PACE; // With 2 ms delay per cycle
                     } else if (game_options.difficulty == HARD) {
-                        field->max_poisons = game_options.poison ? 7 : 0;
+                        field->max_poisons = game_options.poison ? 9 : 0;
                         field->poison_cooldown_base = 10;
                         start_y = field->height - 3;
-                        game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 2);
+                        game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 2); // With 2 ms delay per cycle
                     } else if (game_options.difficulty == INSANE) {
-                        field->max_poisons = game_options.poison ? 9 : 0;
+                        field->max_poisons = game_options.poison ? 11 : 0;
                         field->poison_cooldown_base = 5;
                         start_y = field->height - 3;
-                        game_pace = MAX_GAME_PACE - (GAME_PACE_STEP * 4);
+                        game_pace = MAX_GAME_PACE; // With 1 ms delay per cycle
+                    }
+                    if (grid_size == GRID_SIZE_16X16) {
+                        field->max_poisons = field->max_poisons >> 1;
                     }
                     if (remote_command.is_remote_start && (remote_command.command & 0xFF)) {
                         game_pace = remote_command.command & 0x000000FF;
@@ -847,6 +871,8 @@ void game_loop() {
                         ui_two_player(game_score[0], game_score[1], game_level);
 
                     memset(&remote_command, 0, sizeof(remote_command_t));
+                    WS2812_clear(&led);
+                    draw_wall(&led, field->wall);
                     grid_countdown(&led, grid_width, grid_height, 3, 1000);
                     refresh_grid(&led, field, &game_options);
                     osDelay(500);
@@ -930,15 +956,17 @@ void game_loop() {
                     game_reset = 1;
                 } else if (controller1.current_button_state & SNES_R_MASK && game_options.can_change_speed) {
                     delay_counter = 0;
-                    game_pace -= GAME_PACE_STEP;
-                    if (game_pace <= GAME_PACE_STEP) {
+                    if (game_pace > GAME_PACE_STEP) {
+                        game_pace -= GAME_PACE_STEP;
+                    } else {
                         game_pace = GAME_PACE_STEP;
                     }
                     update_screen = 1;
                 } else if (controller1.current_button_state & SNES_L_MASK && game_options.can_change_speed) {
                     delay_counter = 0;
-                    game_pace += GAME_PACE_STEP;
-                    if (game_pace >= MAX_GAME_PACE) {
+                    if (game_pace < MAX_GAME_PACE) {
+                        game_pace += GAME_PACE_STEP;
+                    } else {
                         game_pace = MAX_GAME_PACE;
                     }
                     update_screen = 1;
@@ -968,7 +996,8 @@ void game_loop() {
                     }
                 }
             }
-            if (delay_counter >= game_pace && !game_pause) {
+            uint8_t game_pace_buffer = game_options.difficulty == INSANE ? 20 + game_pace : game_pace;
+            if (delay_counter >= game_pace_buffer && !game_pause) {
                 delay_counter = 0;
                 order_of_play = !order_of_play;
                 if (!is_ring_buffer_empty(&controller1_buffer)) {
@@ -1113,7 +1142,15 @@ void game_loop() {
                 update_screen = 0;
             }
             perf_counter--;
-            osDelay(3);
+            if (game_options.difficulty == EASY) {
+                osDelay(3);
+            } else if (game_options.difficulty == MEDIUM) {
+                osDelay(2);
+            } else if (game_options.difficulty == HARD) {
+                osDelay(2);
+            } else if (game_options.difficulty == INSANE) {
+                osDelay(1);
+            }
         }
     }
 }

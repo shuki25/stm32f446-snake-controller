@@ -99,8 +99,10 @@ void Error_Handler(void);
 #define LED_HB_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define VERSION_MAJOR 0
-#define VERSION_MINOR 1
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+#define VERSION_PATCH 0
+#define BOARD_REVISION "c"
 
 /* USER CODE END Private defines */
 
