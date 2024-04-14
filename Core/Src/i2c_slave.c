@@ -72,6 +72,7 @@ void initialize_register() {
     volatile_memset(i2c_register_struct.initials_hard, 0, 3);
     volatile_memset(i2c_register_struct.initials_insane, 0, 3);
     i2c_register_struct.date_time = 0;
+    i2c_register_struct.command = 0;
     volatile_memset(i2c_register, 0, REGISTERS_SIZE);
 }
 
@@ -125,6 +126,10 @@ void struct2register() {
     i2c_register[i++] = (uint8_t) (i2c_register_struct.date_time >> 16) & 0xFF;
     i2c_register[i++] = (uint8_t) (i2c_register_struct.date_time >> 8) & 0xFF;
     i2c_register[i++] = (uint8_t) i2c_register_struct.date_time & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.command >> 24) & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.command >> 16) & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.command >> 8) & 0xFF;
+    i2c_register[i++] = (uint8_t) i2c_register_struct.command & 0xFF;
 }
 
 void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16_t best_score,
@@ -144,7 +149,7 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
             | (((uint8_t) game_options->difficulty & 0x0F) << GAME_LEVEL_MODE_SHIFT);
 
     uint8_t game_progress = 0;
-     if (game_pause) {
+    if (game_pause) {
         game_progress = 2;
     } else if (game_over) {
         game_progress = 3;
@@ -152,7 +157,7 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
         game_progress = 1;
     }
 
-    switch(death_cause) {
+    switch (death_cause) {
         case SNAKE_DEATH_BY_WALL:
             death_cause_collision = WALL_COLLISION;
             break;
@@ -199,11 +204,20 @@ void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16
     struct2register();
 }
 
+uint32_t get_register_command() {
+    return i2c_register_struct.command;
+}
+
+void clear_register_command() {
+    i2c_register_struct.command = 0;
+}
+
 void process_data() {
     // TODO: Implement this function
     if (bytes_received > 0) {
-        if (i2c_rx_buffer[0] == 0x05) {
-            i2c_register_struct.current_score2 = (i2c_rx_buffer[1] << 8) | i2c_rx_buffer[2];
+        if (i2c_rx_buffer[0] == 0x30 && bytes_received == 5) {
+            i2c_register_struct.command = (i2c_rx_buffer[1] << 24) | (i2c_rx_buffer[2] << 16)
+                    | (i2c_rx_buffer[3] << 8) | i2c_rx_buffer[4];
         }
         bytes_received = 0;
         i2c_rx_index = 0;
@@ -225,6 +239,7 @@ void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, ui
         HAL_I2C_Slave_Seq_Transmit_IT(hi2c, (uint8_t*) &i2c_register + start_position, 1, I2C_FIRST_FRAME);
     } else if (TransferDirection == I2C_DIRECTION_TRANSMIT) { // Master transmitting to slave
         i2c_rx_index = 0;
+        i2c_tx_index = 0;
         volatile_memset((uint8_t*) i2c_rx_buffer, 0, I2C_BUFFER_SIZE);
         HAL_I2C_Slave_Seq_Receive_IT(hi2c, (uint8_t*) &i2c_rx_buffer, 1, I2C_FIRST_FRAME);
     } else {

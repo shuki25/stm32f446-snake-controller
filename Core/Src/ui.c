@@ -62,6 +62,30 @@ void ui_two_player(uint16_t p1_score, uint16_t p2_score, uint8_t game_level) {
     ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
 }
 
+void ui_forced_end_game_screen() {
+    ssd1306_Fill(Black);
+    ssd1306_DrawRectangle(0, 0, 127, 63, White);
+    ssd1306_SetCursor(14, 5);
+    ssd1306_WriteString("GAME OVER", Font_11x18, White);
+    ssd1306_SetCursor(19, 31);
+    ssd1306_WriteString("Game Ended by", Font_7x10, White);
+    ssd1306_SetCursor(33, 43);
+    ssd1306_WriteString("Moderator", Font_7x10, White);
+    ssd1306_UpdateScreen();
+}
+
+void ui_prepare_game_screen() {
+    ssd1306_Fill(Black);
+    ssd1306_DrawRectangle(0, 0, 127, 63, White);
+    ssd1306_SetCursor(36, 12);
+    ssd1306_WriteString("Starting", Font_7x10, White);
+    ssd1306_SetCursor(43, 24);
+    ssd1306_WriteString("a Game", Font_7x10, White);
+    ssd1306_SetCursor(29, 41);
+    ssd1306_WriteString("Get Ready!", Font_7x10, White);
+    ssd1306_UpdateScreen();
+}
+
 void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t best_score,
         uint16_t delay_counter, uint8_t game_level, uint8_t death_reason, uint16_t *apples_eaten,
         uint32_t game_elapsed_time, char *best_score_name) {

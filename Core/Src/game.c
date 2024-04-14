@@ -24,6 +24,7 @@
 #include "game_stats.h"
 #include "bcd_util.h"
 #include "i2c_slave.h"
+#include "scoreboard.h"
 
 // Global variables
 
@@ -116,6 +117,7 @@ void game_loop() {
     bcd_time_t current_datetime;
 
     uint8_t oled_buffer[20];
+    uint32_t scoreboard_command = 0;
 
     // Initialize i2c slave registers
     initialize_register();
@@ -314,10 +316,63 @@ void game_loop() {
     /* Infinite loop */
     for (;;) {
         /*-------------------------------------------------------
+         * Check for remote command from scoreboard
+         *-------------------------------------------------------*/
+        scoreboard_command = get_register_command();
+        uint32_t mask_cmd = scoreboard_command & I2C_CMD_MASK;
+        if (scoreboard_command) {
+            if ((mask_cmd == I2C_CMD_PREPARE_GAME || mask_cmd == I2C_CMD_END_GAME)
+                    && game_in_progress) {
+                status = poison_food_destroy(field);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                status = destroy_wall(field);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                status = snake_destroy(field->snake1);
+                if (status != SNAKE_OK) {
+                    Error_Handler();
+                }
+                if (game_options.num_players == TWO_PLAYERS) {
+                    status = snake_destroy(field->snake2);
+                    if (status != SNAKE_OK) {
+                        Error_Handler();
+                    }
+                }
+                if (status == SNAKE_OK) {
+                    field->snake1 = NULL;
+                    field->snake2 = NULL;
+                }
+                game_over = 1;
+                death = 0;
+                game_in_progress = 0;
+
+                if (mask_cmd == I2C_CMD_END_GAME) {
+                    WS2812_fill(&led, 20, 0, 0);
+                    WS2812_send(&led);
+                    ui_forced_end_game_screen();
+                }
+            }
+            if (mask_cmd == I2C_CMD_PREPARE_GAME) {
+                WS2812_fill(&led, 20, 0, 0);
+                WS2812_send(&led);
+                ui_prepare_game_screen();
+            }
+            if (mask_cmd == I2C_CMD_SET_SPEED) {
+                game_pace = scoreboard_command & 0x000000FF;
+            }
+
+            clear_register_command();
+        }
+
+        /*-------------------------------------------------------
          * Update i2c2 registers with game stats
          *-------------------------------------------------------*/
-        update_register(game_stats, game_score, best_score, apples_eaten, game_level, death_reason, game_in_progress,
-                game_pause, game_over, game_pace, 0, game_elapsed_time, &game_options, saved_settings.grid_size);
+        update_register(game_stats, game_score, best_score, apples_eaten, game_level, death_reason,
+                game_in_progress, game_pause, game_over, game_pace, 0, game_elapsed_time, &game_options,
+                saved_settings.grid_size);
 
         /*-------------------------------------------------------
          * Game is not in progress, awaiting user input
