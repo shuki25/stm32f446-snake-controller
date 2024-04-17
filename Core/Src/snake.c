@@ -14,6 +14,8 @@
 #include "snake.h"
 #include "rng.h"
 
+extern uint8_t is_random_seed_shared;
+
 // Initialize the playing field
 
 snake_field_t* snake_field_init(uint8_t width, uint8_t height) {
@@ -67,7 +69,9 @@ snake_t* snake_init(uint8_t x, uint8_t y) {
 	snake->direction = SNAKE_UP;
 	snake->color = GREEN;
 
-	rng_seed(17);
+    if (!is_random_seed_shared) {
+        rng_seed(TIM5->CNT);
+    }
 
 	return snake;
 }

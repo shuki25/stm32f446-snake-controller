@@ -73,6 +73,7 @@ void initialize_register() {
     volatile_memset(i2c_register_struct.initials_insane, 0, 3);
     i2c_register_struct.date_time = 0;
     i2c_register_struct.command = 0;
+    i2c_register_struct.random_seed = 0;
     volatile_memset(i2c_register, 0, REGISTERS_SIZE);
 }
 
@@ -130,6 +131,10 @@ void struct2register() {
     i2c_register[i++] = (uint8_t) (i2c_register_struct.command >> 16) & 0xFF;
     i2c_register[i++] = (uint8_t) (i2c_register_struct.command >> 8) & 0xFF;
     i2c_register[i++] = (uint8_t) i2c_register_struct.command & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.random_seed >> 24) & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.random_seed >> 16) & 0xFF;
+    i2c_register[i++] = (uint8_t) (i2c_register_struct.random_seed >> 8) & 0xFF;
+    i2c_register[i++] = (uint8_t) i2c_register_struct.random_seed & 0xFF;
 }
 
 void update_register(game_stats_t game_stats[], uint16_t current_score[], uint16_t best_score,
@@ -208,6 +213,10 @@ uint32_t get_register_command() {
     return i2c_register_struct.command;
 }
 
+uint32_t get_register_random_seed() {
+    return i2c_register_struct.random_seed;
+}
+
 void clear_register_command() {
     i2c_register_struct.command = 0;
 }
@@ -215,9 +224,11 @@ void clear_register_command() {
 void process_data() {
     // TODO: Implement this function
     if (bytes_received > 0) {
-        if (i2c_rx_buffer[0] == 0x30 && bytes_received == 5) {
+        if (i2c_rx_buffer[0] == 0x30 && bytes_received == 9) {
             i2c_register_struct.command = (i2c_rx_buffer[1] << 24) | (i2c_rx_buffer[2] << 16)
                     | (i2c_rx_buffer[3] << 8) | i2c_rx_buffer[4];
+            i2c_register_struct.random_seed = (i2c_rx_buffer[5] << 24) | (i2c_rx_buffer[6] << 16)
+                    | (i2c_rx_buffer[7] << 8) | i2c_rx_buffer[8];
         }
         bytes_received = 0;
         i2c_rx_index = 0;

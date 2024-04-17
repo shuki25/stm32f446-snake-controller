@@ -13,6 +13,10 @@
 #include "main.h"
 #include "stdint.h"
 
+#define RNG_PRIME 1103515245
+#define RNG_INCREMENT 48271
+#define RNG_MODULUS 2147483647
+
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim5;

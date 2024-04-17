@@ -40,6 +40,7 @@ RingBuffer controller2_buffer;
 uint8_t update_screen_flag = 0;
 uint8_t scoreboard_i2c_address = 0x00; // Not set
 grid_size_options_t grid_size = GRID_SIZE_32X16;
+uint8_t is_random_seed_shared = 0;
 
 // External variables
 extern RTC_HandleTypeDef hrtc;
@@ -53,6 +54,8 @@ extern TIM_HandleTypeDef htim2;
 extern TIM_HandleTypeDef htim3;
 extern TIM_HandleTypeDef htim5;
 extern TIM_HandleTypeDef htim13;
+
+extern volatile uint32_t random_seed;
 
 void game_loop() {
     // Get controller states
@@ -399,6 +402,10 @@ void game_loop() {
                 remote_command.command = scoreboard_command;
                 remote_command.is_remote_start = 1;
                 game_options.can_change_speed = 0;
+                is_random_seed_shared = 1; // Use shared RNG with reproducible sequence of random numbers
+            }
+            if (mask_cmd == I2C_CMD_RANDOM_SEED) {
+                rng_seed(get_register_random_seed());
             }
 
             clear_register_command();
@@ -738,6 +745,7 @@ void game_loop() {
                 if (!game_reset && !remote_command.is_remote_start) {
                     menu_game_options(&game_options, &controller1, &controller2);
                     game_options.can_change_speed = 1;
+                    is_random_seed_shared = 0; // Use real RNG
                 }
                 if (!get_register_command()) {
 
