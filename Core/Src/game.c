@@ -20,6 +20,7 @@
 #include "snes_controller.h"
 #include "ring_buffer.h"
 #include "ui.h"
+#include "rng.h"
 #include "eeprom.h"
 #include "game_stats.h"
 #include "bcd_util.h"
