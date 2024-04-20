@@ -70,7 +70,7 @@ snake_t* snake_init(uint8_t x, uint8_t y) {
 	snake->color = GREEN;
 
     if (!is_random_seed_shared) {
-        rng_seed(TIM2->CNT);
+        rng_seed(17);
     }
 
 	return snake;
