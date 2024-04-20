@@ -12,7 +12,7 @@
 #include "ssd1306.h"
 #include "ssd1306_fonts.h"
 
-void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level) {
+void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level, uint8_t tournament_mode) {
 
     uint8_t oled_buffer[20];
 
@@ -35,9 +35,14 @@ void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level)
     uint8_t len = strlen((char*) oled_buffer);
     ssd1306_SetCursor((124 - (len * 7)), 14);
     ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+
+    if (tournament_mode) {
+        ssd1306_SetCursor(29, 32);
+        ssd1306_WriteString("Tournament", Font_7x10, White);
+    }
 }
 
-void ui_two_player(uint16_t p1_score, uint16_t p2_score, uint8_t game_level) {
+void ui_two_player(uint16_t p1_apples, uint16_t p2_apples, uint8_t game_level) {
 
     uint8_t oled_buffer[20];
 
@@ -48,7 +53,7 @@ void ui_two_player(uint16_t p1_score, uint16_t p2_score, uint8_t game_level) {
     ssd1306_SetCursor(112, 2);
     ssd1306_WriteString("P2", Font_7x10, White);
 
-    snprintf((char*) oled_buffer, 16, "%d", p1_score);
+    snprintf((char*) oled_buffer, 16, "%d", p1_apples); // Player 1 Number of Apples Eaten
     ssd1306_SetCursor(4, 14);
     ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
 
@@ -56,7 +61,7 @@ void ui_two_player(uint16_t p1_score, uint16_t p2_score, uint8_t game_level) {
     ssd1306_SetCursor(53, 14);
     ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
 
-    snprintf((char*) oled_buffer, 16, "%d", p2_score);
+    snprintf((char*) oled_buffer, 16, "%d", p2_apples); // Player 2 Number of Apples Eaten
     uint8_t len = strlen((char*) oled_buffer);
     ssd1306_SetCursor((128 - (len * 7)), 14);
     ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
@@ -77,10 +82,10 @@ void ui_forced_end_game_screen() {
 void ui_prepare_game_screen() {
     ssd1306_Fill(Black);
     ssd1306_DrawRectangle(0, 0, 127, 63, White);
-    ssd1306_SetCursor(36, 12);
-    ssd1306_WriteString("Starting", Font_7x10, White);
-    ssd1306_SetCursor(43, 24);
-    ssd1306_WriteString("a Game", Font_7x10, White);
+    ssd1306_SetCursor(29, 12);
+    ssd1306_WriteString("Starting a", Font_7x10, White);
+    ssd1306_SetCursor(29, 24);
+    ssd1306_WriteString("Tournament", Font_7x10, White);
     ssd1306_SetCursor(29, 41);
     ssd1306_WriteString("Get Ready!", Font_7x10, White);
     ssd1306_UpdateScreen();
@@ -153,26 +158,31 @@ void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t
             ssd1306_UpdateScreen();
         }
     } else {
+//        if (delay_counter <= 1) {
+//            ssd1306_SetCursor(1, 26);
+//            ssd1306_WriteString("                ", Font_7x10, White);
+//
+//            snprintf((char*) oled_buffer, 24, "P1 Score: %d", game_score[0]);
+//            len = strlen((char*) oled_buffer);
+//            ssd1306_SetCursor((128 - (7 * len)) >> 1, 26);
+//            ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+//
+//            ssd1306_SetCursor(1, 38);
+//            ssd1306_WriteString("                ", Font_7x10, White);
+//
+//            snprintf((char*) oled_buffer, 16, "P2 Score: %d", game_score[1]);
+//            len = strlen((char*) oled_buffer);
+//            ssd1306_SetCursor((128 - (7 * len)) >> 1, 38);
+//            ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
+//            ssd1306_UpdateScreen();
+//        }
         if (delay_counter <= 1) {
             ssd1306_SetCursor(1, 26);
-            ssd1306_WriteString("                ", Font_7x10, White);
-
-            snprintf((char*) oled_buffer, 24, "P1 Score: %d", game_score[0]);
-            len = strlen((char*) oled_buffer);
-            ssd1306_SetCursor((128 - (7 * len)) >> 1, 26);
-            ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
-
-            ssd1306_SetCursor(1, 38);
-            ssd1306_WriteString("                ", Font_7x10, White);
-
-            snprintf((char*) oled_buffer, 16, "P2 Score: %d", game_score[1]);
-            len = strlen((char*) oled_buffer);
-            ssd1306_SetCursor((128 - (7 * len)) >> 1, 38);
-            ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
-            ssd1306_UpdateScreen();
-        } else if (delay_counter == UI_DELAY) {
-            ssd1306_SetCursor(1, 26);
             ssd1306_WriteString("     Death by     ", Font_7x10, White);
+
+            ssd1306_SetCursor(1, 50);
+            ssd1306_WriteString("                ", Font_7x10, White); // Clear the time from previous screen
+
             ssd1306_SetCursor(1, 38);
             switch (death_reason) {
                 case SNAKE_DEATH_BY_WALL:
@@ -190,7 +200,7 @@ void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t
                     break;
             }
             ssd1306_UpdateScreen();
-        } else if (delay_counter == UI_DELAY * 2) {
+        } else if (delay_counter == UI_DELAY) {
             ssd1306_SetCursor(1, 26);
             ssd1306_WriteString("                ", Font_7x10, White);
 
@@ -204,8 +214,6 @@ void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t
             ssd1306_SetCursor((128 - (7 * len)) >> 1, 38);
             ssd1306_WriteString((char*) oled_buffer, Font_7x10, White);
 
-            ssd1306_SetCursor(1, 50);
-            ssd1306_WriteString("                ", Font_7x10, White);
             snprintf((char*) oled_buffer, 17, "Time: %d:%02d", (uint8_t) (game_elapsed_time / 60),
                     (uint8_t) (game_elapsed_time % 60));
             len = strlen((char*) oled_buffer);

@@ -124,6 +124,7 @@ void game_loop() {
     uint32_t scoreboard_command = 0;
     remote_command_t remote_command;
     uint8_t end_game_counter = 0;
+    uint8_t is_tournament_mode = 0;
 
     // Initialize i2c slave registers
     initialize_register();
@@ -282,19 +283,17 @@ void game_loop() {
     grid_draw_font(&led, grid_width, grid_height, "E", 1, MAGENTA);
     osDelay(500);
 
-    // grid_countdown(&led, grid_width, grid_height, 3, 1000);
 
     WS2812_fill(&led, 0, 0, 32);
-//    WS2812_set_brightness(&led, 5);
     WS2812_send(&led);
-
     osDelay(500);
-
     WS2812_clear(&led);
-//    WS2812_set_brightness(&led, led.brightness);
     WS2812_send(&led);
-
     osDelay(10);
+
+    ssd1306_SetCursor(25, 49);
+    ssd1306_WriteString("Press Start", Font_7x10, White);
+    ssd1306_UpdateScreen();
 
     // Grid test
 
@@ -403,7 +402,8 @@ void game_loop() {
                 remote_command.command = scoreboard_command;
                 remote_command.is_remote_start = 1;
                 game_options.can_change_speed = 0;
-                is_random_seed_shared = 1; // Use shared RNG with reproducible sequence of random numbers
+                is_tournament_mode = 1;     // Is running in tournament mode
+                is_random_seed_shared = 1;  // Use shared RNG with reproducible sequence of random numbers
             }
             if (mask_cmd == I2C_CMD_RANDOM_SEED) {
                 rng_seed(get_register_random_seed());
@@ -746,6 +746,7 @@ void game_loop() {
                 if (!game_reset && !remote_command.is_remote_start) {
                     menu_game_options(&game_options, &controller1, &controller2);
                     game_options.can_change_speed = 1;
+                    is_tournament_mode = 0;
                     is_random_seed_shared = 0; // Use real RNG
                 }
                 if (!get_register_command()) {
@@ -875,9 +876,9 @@ void game_loop() {
                     ssd1306_Fill(Black);
 
                     if (game_options.num_players == ONE_PLAYER)
-                        ui_one_player(game_score[0], best_score, game_level);
+                        ui_one_player(game_score[0], best_score, game_level, is_tournament_mode);
                     else if (game_options.num_players == TWO_PLAYERS)
-                        ui_two_player(game_score[0], game_score[1], game_level);
+                        ui_two_player(apples_eaten[0], apples_eaten[1], game_level);
 
                     memset(&remote_command, 0, sizeof(remote_command_t));
                     WS2812_clear(&led);
@@ -903,9 +904,9 @@ void game_loop() {
                 game_pause = 0;
                 ssd1306_Fill(Black);
                 if (game_options.num_players == ONE_PLAYER)
-                    ui_one_player(game_score[0], best_score, game_level);
+                    ui_one_player(game_score[0], best_score, game_level, is_tournament_mode);
                 else if (game_options.num_players == TWO_PLAYERS)
-                    ui_two_player(game_score[0], game_score[1], game_level);
+                    ui_two_player(apples_eaten[0], apples_eaten[1], game_level);
                 update_screen = 1;
             } else if (pause_selection == RESTART) {
                 game_in_progress = 0;
@@ -960,7 +961,9 @@ void game_loop() {
                     }
                 }
                 if (controller1.current_button_state & SNES_START_MASK) {
-                    game_pause = !game_pause;
+                    if (!is_tournament_mode) {
+                        game_pause = !game_pause;
+                    }
                 } else if (controller1.current_button_state & SNES_SELECT_MASK) {
                     game_reset = 1;
                 } else if (controller1.current_button_state & SNES_R_MASK && game_options.can_change_speed) {
@@ -1005,7 +1008,7 @@ void game_loop() {
                     }
                 }
             }
-            uint8_t game_pace_buffer = game_options.difficulty == INSANE ? 20 + game_pace : game_pace;
+            uint8_t game_pace_buffer = game_options.difficulty == INSANE ? 30 + game_pace : game_pace;
             if (delay_counter >= game_pace_buffer && !game_pause) {
                 delay_counter = 0;
                 order_of_play = !order_of_play;
@@ -1122,17 +1125,18 @@ void game_loop() {
             if (update_screen) {
 
                 if (game_options.num_players == ONE_PLAYER)
-                    ui_one_player(game_score[0], best_score, game_level);
+                    ui_one_player(game_score[0], best_score, game_level, is_tournament_mode);
                 else if (game_options.num_players == TWO_PLAYERS)
-                    ui_two_player(game_score[0], game_score[1], game_level);
+                    ui_two_player(apples_eaten[0], apples_eaten[1], game_level);
 
-                if (game_pause) {
-                    ssd1306_SetCursor(31, 24);
-                    ssd1306_WriteString("PAUSED", Font_11x18, White);
-                } else {
-                    ssd1306_SetCursor(31, 24);
-                    ssd1306_WriteString("       ", Font_11x18, White);
-                }
+//                if (game_pause) {
+//                    ssd1306_SetCursor(31, 24);
+//                    ssd1306_WriteString("PAUSED", Font_11x18, White);
+//                } else if (previously_paused) {
+//                    previously_paused = 0;
+//                    ssd1306_SetCursor(31, 24);
+//                    ssd1306_WriteString("       ", Font_11x18, White);
+//                }
             }
 
             end_time = __HAL_TIM_GET_COUNTER(&htim2);

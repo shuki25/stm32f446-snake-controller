@@ -12,8 +12,8 @@
 
 #define UI_DELAY 125
 
-void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level);
-void ui_two_player(uint16_t p1_score, uint16_t p2_score, uint8_t game_level);
+void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level, uint8_t tournament_mode);
+void ui_two_player(uint16_t p1_apples, uint16_t p2_apples, uint8_t game_level);
 void ui_forced_end_game_screen();
 void ui_prepare_game_screen();
 void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t best_score,
