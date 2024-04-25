@@ -55,10 +55,10 @@
 #define SECOND_SHIFT (0)
 
 // 32-Bit Definitions for the command
-// 31    26  23     16        8        0
-// +------+---+-------+--------+--------+
-// |000000|CMD|RESERVE|  PARAM2|  PARAM1|
-// +------+---+-------+--------+--------+
+// 31  27   23      16        8        0
+// +-----+----+-------+--------+--------+
+// |00000| CMD|RESERVE|  PARAM2|  PARAM1|
+// +-----+----+-------+--------+--------+
 
 #define I2C_CMD_SET_SPEED       (0b0001 << 23)
 #define I2C_CMD_SET_LEVEL       (0b0010 << 23)
@@ -68,6 +68,7 @@
 #define I2C_CMD_PAUSE_GAME      (0b0110 << 23)
 #define I2C_CMD_END_GAME        (0b0111 << 23)
 #define I2C_CMD_RANDOM_SEED     (0b1000 << 23)
+#define I2C_CMD_TOURNAMENT_END  (0b1001 << 23)
 #define I2C_CMD_MASK            (0b1111 << 23)
 #define PARAM1_MASK             (0b11111111)
 #define PARAM1_SHIFT            (0)

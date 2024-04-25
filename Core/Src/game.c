@@ -125,6 +125,7 @@ void game_loop() {
     remote_command_t remote_command;
     uint8_t end_game_counter = 0;
     uint8_t is_tournament_mode = 0;
+    uint8_t is_waiting_tournament_end = 0;
 
     // Initialize i2c slave registers
     initialize_register();
@@ -283,7 +284,6 @@ void game_loop() {
     grid_draw_font(&led, grid_width, grid_height, "E", 1, MAGENTA);
     osDelay(500);
 
-
     WS2812_fill(&led, 0, 0, 32);
     WS2812_send(&led);
     osDelay(500);
@@ -408,6 +408,21 @@ void game_loop() {
             if (mask_cmd == I2C_CMD_RANDOM_SEED) {
                 rng_seed(get_register_random_seed());
             }
+            if (mask_cmd == I2C_CMD_TOURNAMENT_END) {
+                is_tournament_mode = 0;
+                is_random_seed_shared = 0; // Use real RNG
+                if (is_waiting_tournament_end) {
+                    is_waiting_tournament_end = 0;
+                    game_over = 0;
+                    game_reset = 0;
+                    game_pause = 0;
+                    game_in_progress = 0;
+                    death = 0;
+                    draw_home_screen();
+                    WS2812_clear(&led);
+                    WS2812_send(&led);
+                }
+            }
 
             clear_register_command();
         }
@@ -523,6 +538,10 @@ void game_loop() {
                     }
                 }
 
+                if (is_tournament_mode) {
+                    is_waiting_tournament_end = 1;
+                }
+
                 ssd1306_Fill(Black);
                 ssd1306_SetCursor(14, 0);
                 ssd1306_WriteString("GAME OVER", Font_11x18, White);
@@ -550,11 +569,15 @@ void game_loop() {
                     game_pause = 0;
                     game_in_progress = 0;
                     death = 0;
-                    draw_home_screen();
-                    WS2812_clear(&led);
-                    WS2812_send(&led);
+                    if (is_tournament_mode) {
+                        ui_wait_end_tournament_screen();
+                        is_waiting_tournament_end = 1;
+                    } else {
+                        draw_home_screen();
+                        WS2812_clear(&led);
+                        WS2812_send(&led);
+                    }
                 }
-
             }
 
             /*-------------------------------------------------------
@@ -579,7 +602,8 @@ void game_loop() {
              * Settings Screen (Game not in progress)
              *-------------------------------------------------------*/
 
-            if (controller1.current_button_state == (SNES_SELECT_MASK + SNES_R_MASK + SNES_L_MASK)) {
+            if (controller1.current_button_state == (SNES_SELECT_MASK + SNES_R_MASK + SNES_L_MASK)
+                    && !is_waiting_tournament_end) {
                 settings_selection = menu_settings_screen(&controller1);
 
                 if (settings_selection == SET_CLOCK) {
@@ -741,9 +765,17 @@ void game_loop() {
             /*-------------------------------------------------------
              * Start Game (Game not in progress)
              *-------------------------------------------------------*/
-            if (controller1.current_button_state == SNES_START_MASK || game_reset
-                    || remote_command.is_remote_start) {
-                if (!game_reset && !remote_command.is_remote_start) {
+            if (controller1.current_button_state == SNES_START_MASK && is_waiting_tournament_end
+                    && !remote_command.is_remote_start) {
+                ui_wait_end_tournament_screen();
+                game_over = 0;
+                game_reset = 0;
+                game_pause = 0;
+                game_in_progress = 0;
+                death = 0;
+            } else if ((controller1.current_button_state == SNES_START_MASK || game_reset
+                    || remote_command.is_remote_start)) {
+                if (!game_reset && !remote_command.is_remote_start && !is_tournament_mode) {
                     menu_game_options(&game_options, &controller1, &controller2);
                     game_options.can_change_speed = 1;
                     is_tournament_mode = 0;

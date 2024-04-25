@@ -91,6 +91,18 @@ void ui_prepare_game_screen() {
     ssd1306_UpdateScreen();
 }
 
+void ui_wait_end_tournament_screen() {
+    ssd1306_Fill(Black);
+    ssd1306_DrawRectangle(0, 0, 127, 63, White);
+    ssd1306_SetCursor(25, 14);
+    ssd1306_WriteString("Waiting for", Font_7x10, White);
+    ssd1306_SetCursor(15, 26);
+    ssd1306_WriteString("the tournament", Font_7x10, White);
+    ssd1306_SetCursor(25, 38);
+    ssd1306_WriteString("to conclude", Font_7x10, White);
+    ssd1306_UpdateScreen();
+}
+
 void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t best_score,
         uint16_t delay_counter, uint8_t game_level, uint8_t death_reason, uint16_t *apples_eaten,
         uint32_t game_elapsed_time, char *best_score_name) {

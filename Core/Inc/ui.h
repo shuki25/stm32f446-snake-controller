@@ -16,6 +16,7 @@ void ui_one_player(uint16_t game_score, uint16_t best_score, uint8_t game_level,
 void ui_two_player(uint16_t p1_apples, uint16_t p2_apples, uint8_t game_level);
 void ui_forced_end_game_screen();
 void ui_prepare_game_screen();
+void ui_wait_end_tournament_screen();
 void ui_game_over_screen(game_options_t *options, uint16_t *game_score, uint16_t best_score,
         uint16_t delay_counter, uint8_t game_level, uint8_t death_reason, uint16_t *apples_eaten,
         uint32_t game_elapsed_time, char *best_score_name);
